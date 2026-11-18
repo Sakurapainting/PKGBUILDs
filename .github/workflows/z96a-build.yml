@@ -1,11 +1,17 @@
-name: Z96A package build
+name: Z96A kernel and board build
 
 on:
   push:
     branches:
       - z96a-niri
+    paths:
+      - core/linux-aarch64/**
+      - alarm/z96a-typec-post-install/**
+      - core/archlinuxarm-keyring/**
     tags:
+      - z96a-kernel-ci-*
       - z96a-v*
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,83 +21,57 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 360
     steps:
-      - name: Check out package sources
+      - name: Check out kernel and board sources
         uses: actions/checkout@v4
         with:
           filter: blob:none
           sparse-checkout: |
             .github/scripts
-            alarm/z96a-niri-profile
             alarm/z96a-typec-post-install
             core/archlinuxarm-keyring
             core/linux-aarch64
 
-      - name: Check runner disk space
-        run: |
-          sudo apt-get clean
-          if ! command -v bsdtar >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y libarchive-tools
-          fi
-          df -h "$GITHUB_WORKSPACE"
-
       - name: Bootstrap Arch Linux ARM
-        env:
-          ALARM_ROOT: ${{ runner.temp }}/alarm-root
-        run: |
-          set -euo pipefail
-          export GNUPGHOME="$RUNNER_TEMP/gnupg"
-          mkdir -m 0700 -p "$GNUPGHOME"
-          curl --fail --location --retry 5 \
-            --output "$RUNNER_TEMP/alarm-rootfs.tar.gz" \
-            http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz
-          curl --fail --location --retry 5 \
-            --output "$RUNNER_TEMP/alarm-rootfs.tar.gz.sig" \
-            http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz.sig
-          gpg --batch --import \
-            "$GITHUB_WORKSPACE/core/archlinuxarm-keyring/archlinuxarm.gpg"
-          gpg --batch --verify \
-            "$RUNNER_TEMP/alarm-rootfs.tar.gz.sig" \
-            "$RUNNER_TEMP/alarm-rootfs.tar.gz"
+        run: bash .github/scripts/bootstrap-alarm.sh
 
-          sudo mkdir -p "$ALARM_ROOT"
-          sudo bsdtar --numeric-owner --xattrs --acls \
-            -xpf "$RUNNER_TEMP/alarm-rootfs.tar.gz" -C "$ALARM_ROOT"
-          truncate --size=0 "$RUNNER_TEMP/alarm-rootfs.tar.gz"
-          truncate --size=0 "$RUNNER_TEMP/alarm-rootfs.tar.gz.sig"
-          sudo mount --bind "$ALARM_ROOT" "$ALARM_ROOT"
-          sudo cp --remove-destination /etc/resolv.conf "$ALARM_ROOT/etc/resolv.conf"
-          sudo mkdir -p "$ALARM_ROOT/work"
-          sudo mount --bind /dev "$ALARM_ROOT/dev"
-          sudo mount --bind /dev/pts "$ALARM_ROOT/dev/pts"
-          sudo mount -t proc proc "$ALARM_ROOT/proc"
-          sudo mount -t sysfs sysfs "$ALARM_ROOT/sys"
-          sudo mount --bind "$GITHUB_WORKSPACE" "$ALARM_ROOT/work"
-          df -h "$GITHUB_WORKSPACE"
-          echo "ALARM_ROOT=$ALARM_ROOT" >> "$GITHUB_ENV"
+      - name: Prepare package builder
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh prepare
 
-      - name: Build packages in Arch Linux ARM
-        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh
+      - name: Build Linux kernel, modules and DTBs
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh kernel
 
-      - name: Upload package artifacts
+      - name: Build Z96A board package
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh board
+
+      - name: Upload kernel and board artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: z96a-aarch64-packages
+          name: z96a-aarch64-platform
           path: dist/*.pkg.tar.zst
           if-no-files-found: error
           retention-days: 30
 
+  desktop:
+    if: startsWith(github.ref, 'refs/tags/z96a-v')
+    uses: ./.github/workflows/z96a-niri.yml
+
   release:
     if: startsWith(github.ref, 'refs/tags/z96a-v')
-    needs: build
+    needs: [build, desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download package artifacts
+      - name: Download kernel and board artifacts
         uses: actions/download-artifact@v4
         with:
-          name: z96a-aarch64-packages
+          name: z96a-aarch64-platform
+          path: dist
+
+      - name: Download Niri profile artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: z96a-niri-profile
           path: dist
 
       - name: Publish GitHub Release

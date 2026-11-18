@@ -1,0 +1,50 @@
+name: Z96A Niri profile build
+
+on:
+  push:
+    branches:
+      - z96a-niri
+    paths:
+      - alarm/z96a-niri-profile/**
+      - core/archlinuxarm-keyring/**
+      - .github/scripts/bootstrap-alarm.sh
+      - .github/scripts/build-in-alarm.sh
+      - .github/workflows/z96a-niri.yml
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Check out Niri profile sources
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            .github/scripts
+            alarm/z96a-niri-profile
+            core/archlinuxarm-keyring
+
+      - name: Bootstrap Arch Linux ARM
+        run: bash .github/scripts/bootstrap-alarm.sh
+
+      - name: Prepare package builder
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh prepare
+
+      - name: Build Niri profile
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh desktop
+
+      - name: Test installation and validate Niri configuration
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh validate-desktop
+
+      - name: Upload Niri profile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: z96a-niri-profile
+          path: dist/z96a-niri-profile-*.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 30
