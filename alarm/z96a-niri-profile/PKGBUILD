@@ -1,0 +1,60 @@
+# Maintainer: Sakurapainting
+
+pkgname=z96a-niri-profile
+pkgver=1.0
+pkgrel=1
+pkgdesc='Niri Wayland desktop profile for the Sunniwell Z96A-PD'
+arch=('any')
+url='https://github.com/Sakurapainting/PKGBUILDs/tree/z96a-niri/alarm/z96a-niri-profile'
+license=('GPL-3.0-or-later')
+depends=(
+  'niri'
+  'waybar'
+  'fuzzel'
+  'mako'
+  'swaylock'
+  'swayidle'
+  'xdg-desktop-portal'
+  'xdg-desktop-portal-gtk'
+  'xwayland-satellite'
+  'xorg-xwayland'
+  'foot'
+  'greetd'
+  'greetd-tuigreet'
+  'polkit-gnome'
+  'pipewire'
+  'pipewire-pulse'
+  'wireplumber'
+  'qt5-wayland'
+  'qt6-wayland'
+)
+source=(
+  'config.kdl'
+  'waybar.jsonc'
+  'waybar.css'
+  'portals.conf'
+  'greetd.toml'
+  'journald.conf'
+  'journal-tmpfiles.conf'
+)
+sha256sums=(
+  '701ff425dde4236faf580a495336877960e018909e758d374416f6fcb66ff6f6'
+  'b5b1a0f803bc5fcf09baf2742471d97e7b2cd9160d3d88dd6b9cc132dbc5798a'
+  '0ccdd82ac45ae9e03449cfa1b3d527e65160b41b940818007499c4d3afe2e49f'
+  '7021091f9257d6db3599b0b9cec64ce22fe303500fdee36e1e50945ef83c2c88'
+  'a3295e4cb0e8880cd4cd15175d10a8cb0c87695a950ce5c20ede77291455bb5b'
+  'beb4bc5630ee1f798e7abe8ab27a5dfc293edc08188def6c7120556cab1c64aa'
+  '3daffc4b0d579d31af1362befddcf53130ff14d52478f2f0bbbeb953a4fd5a17'
+)
+
+package() {
+  local profile_dir="${pkgdir}/usr/share/z96a-niri-profile"
+
+  install -Dm0644 config.kdl "${profile_dir}/niri/config.kdl"
+  install -Dm0644 waybar.jsonc "${profile_dir}/waybar/config.jsonc"
+  install -Dm0644 waybar.css "${profile_dir}/waybar/style.css"
+  install -Dm0644 portals.conf "${pkgdir}/usr/share/xdg-desktop-portal/niri-portals.conf"
+  install -Dm0644 greetd.toml "${profile_dir}/greetd/config.toml"
+  install -Dm0644 journald.conf "${pkgdir}/usr/lib/systemd/journald.conf.d/20-z96a-persistent.conf"
+  install -Dm0644 journal-tmpfiles.conf "${pkgdir}/usr/lib/tmpfiles.d/z96a-niri-profile.conf"
+}

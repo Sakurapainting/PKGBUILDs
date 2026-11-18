@@ -1,0 +1,40 @@
+input {
+    touchpad {
+        tap
+        natural-scroll
+    }
+}
+
+layout {
+    gaps 8
+    center-focused-column "never"
+}
+
+spawn-at-startup "waybar"
+spawn-at-startup "mako"
+spawn-at-startup "swayidle" "-w" "timeout" "600" "swaylock" "-f" "timeout" "900" "niri" "msg" "action" "power-off-monitors" "before-sleep" "swaylock" "-f"
+
+binds {
+    Mod+Return { spawn "foot"; }
+    Mod+D { spawn "fuzzel"; }
+    Super+Alt+L { spawn "swaylock" "-f"; }
+    Mod+Q repeat=false { close-window; }
+
+    Mod+H { focus-column-left; }
+    Mod+J { focus-window-down; }
+    Mod+K { focus-window-up; }
+    Mod+L { focus-column-right; }
+
+    Mod+Ctrl+H { move-column-left; }
+    Mod+Ctrl+J { move-window-down; }
+    Mod+Ctrl+K { move-window-up; }
+    Mod+Ctrl+L { move-column-right; }
+
+    Mod+Shift+E { quit; }
+    Mod+Shift+P { power-off-monitors; }
+
+    XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+ -l 1.0"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1-"; }
+    XF86AudioMute allow-when-locked=true { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"; }
+    XF86AudioMicMute allow-when-locked=true { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"; }
+}

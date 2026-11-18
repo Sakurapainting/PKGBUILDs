@@ -1,0 +1,96 @@
+name: Z96A package build
+
+on:
+  push:
+    branches:
+      - z96a-niri
+    tags:
+      - z96a-v*
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    steps:
+      - name: Check out package sources
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            .github/scripts
+            alarm/z96a-niri-profile
+            alarm/z96a-typec-post-install
+            core/archlinuxarm-keyring
+            core/linux-aarch64
+
+      - name: Check runner disk space
+        run: |
+          sudo apt-get clean
+          df -h "$GITHUB_WORKSPACE"
+
+      - name: Bootstrap Arch Linux ARM
+        env:
+          ALARM_ROOT: ${{ runner.temp }}/alarm-root
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 0700 -p "$GNUPGHOME"
+          curl --fail --location --retry 5 \
+            --output "$RUNNER_TEMP/alarm-rootfs.tar.gz" \
+            http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz
+          curl --fail --location --retry 5 \
+            --output "$RUNNER_TEMP/alarm-rootfs.tar.gz.sig" \
+            http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz.sig
+          gpg --batch --import \
+            "$GITHUB_WORKSPACE/core/archlinuxarm-keyring/archlinuxarm.gpg"
+          gpg --batch --verify \
+            "$RUNNER_TEMP/alarm-rootfs.tar.gz.sig" \
+            "$RUNNER_TEMP/alarm-rootfs.tar.gz"
+
+          sudo mkdir -p "$ALARM_ROOT"
+          sudo tar --numeric-owner --xattrs --xattrs-include='*' --acls \
+            -xpf "$RUNNER_TEMP/alarm-rootfs.tar.gz" -C "$ALARM_ROOT"
+          truncate --size=0 "$RUNNER_TEMP/alarm-rootfs.tar.gz"
+          truncate --size=0 "$RUNNER_TEMP/alarm-rootfs.tar.gz.sig"
+          sudo cp --remove-destination /etc/resolv.conf "$ALARM_ROOT/etc/resolv.conf"
+          sudo mkdir -p "$ALARM_ROOT/work"
+          sudo mount --bind /dev "$ALARM_ROOT/dev"
+          sudo mount --bind /dev/pts "$ALARM_ROOT/dev/pts"
+          sudo mount -t proc proc "$ALARM_ROOT/proc"
+          sudo mount -t sysfs sysfs "$ALARM_ROOT/sys"
+          sudo mount --bind "$GITHUB_WORKSPACE" "$ALARM_ROOT/work"
+          df -h "$GITHUB_WORKSPACE"
+          echo "ALARM_ROOT=$ALARM_ROOT" >> "$GITHUB_ENV"
+
+      - name: Build packages in Arch Linux ARM
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: z96a-aarch64-packages
+          path: dist/*.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/z96a-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: z96a-aarch64-packages
+          path: dist
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.pkg.tar.zst \
+          --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
