@@ -31,6 +31,7 @@ build_package() {
     HOME=/home/builder \
     MAKEFLAGS=-j2 \
     PACKAGER='Z96A GitHub Actions <actions@users.noreply.github.com>' \
+    PKGEXT=.pkg.tar.zst \
     PKGDEST="$workspace/dist" \
     makepkg "$@" --noconfirm --cleanbuild --clean --dir "$workspace/$package"
 
