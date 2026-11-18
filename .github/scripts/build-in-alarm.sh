@@ -33,6 +33,15 @@ build_package() {
     PACKAGER='Z96A GitHub Actions <actions@users.noreply.github.com>' \
     PKGDEST="$workspace/dist" \
     makepkg "$@" --noconfirm --cleanbuild --clean --dir "$workspace/$package"
+
+  find "$workspace" -type f -name '*.pkg.tar.zst' \
+    ! -path "$workspace/dist/*" \
+    -exec install -m0644 -t "$workspace/dist" -- {} +
+
+  if ! compgen -G "$workspace/dist/*.pkg.tar.zst" >/dev/null; then
+    printf 'No package archive found after building %s\n' "$package" >&2
+    exit 1
+  fi
 }
 
 case "${1:-}" in
