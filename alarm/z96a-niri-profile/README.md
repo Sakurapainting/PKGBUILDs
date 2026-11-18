@@ -74,7 +74,7 @@ runner. Neither installs anything on the device.
 | --- | --- |
 | Changes to this profile or its CI files on `z96a-niri` | `z96a-niri.yml` builds and test-installs the profile, runs `niri validate`, and uploads the `z96a-niri-profile` artifact without building the kernel. |
 | Changes under `core/linux-aarch64/` or `alarm/z96a-typec-post-install/` on `z96a-niri` | `z96a-build.yml` builds the kernel and board packages and uploads the `z96a-aarch64-platform` artifact. |
-| Manually run `z96a-build.yml`, or push a `z96a-kernel-ci-*` tag | Run the kernel and board build without creating a Release. Use this to test platform CI changes when the package inputs did not change. |
+| Push a `z96a-kernel-ci-*` tag | Run the kernel and board build without creating a Release. Use this to test platform CI changes when the package inputs did not change. |
 | Push a `z96a-v*` tag | Build both sets of packages in parallel, upload their separate artifacts, and create a GitHub Release containing both sets after they pass. |
 
 The profile itself does not remove Plasma. Compare idle memory and application
