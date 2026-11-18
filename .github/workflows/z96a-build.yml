@@ -29,6 +29,10 @@ jobs:
       - name: Check runner disk space
         run: |
           sudo apt-get clean
+          if ! command -v bsdtar >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y libarchive-tools
+          fi
           df -h "$GITHUB_WORKSPACE"
 
       - name: Bootstrap Arch Linux ARM
@@ -51,10 +55,11 @@ jobs:
             "$RUNNER_TEMP/alarm-rootfs.tar.gz"
 
           sudo mkdir -p "$ALARM_ROOT"
-          sudo tar --numeric-owner --xattrs --xattrs-include='*' --acls \
+          sudo bsdtar --numeric-owner --xattrs --acls \
             -xpf "$RUNNER_TEMP/alarm-rootfs.tar.gz" -C "$ALARM_ROOT"
           truncate --size=0 "$RUNNER_TEMP/alarm-rootfs.tar.gz"
           truncate --size=0 "$RUNNER_TEMP/alarm-rootfs.tar.gz.sig"
+          sudo mount --bind "$ALARM_ROOT" "$ALARM_ROOT"
           sudo cp --remove-destination /etc/resolv.conf "$ALARM_ROOT/etc/resolv.conf"
           sudo mkdir -p "$ALARM_ROOT/work"
           sudo mount --bind /dev "$ALARM_ROOT/dev"
