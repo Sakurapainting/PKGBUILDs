@@ -45,6 +45,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: z96a-niri-profile
-          path: dist/z96a-niri-profile-*.pkg.tar.zst
+          path: dist/z96a-niri-profile-*.pkg.tar.xz
           if-no-files-found: error
           retention-days: 30

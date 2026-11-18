@@ -31,15 +31,15 @@ build_package() {
     HOME=/home/builder \
     MAKEFLAGS=-j2 \
     PACKAGER='Z96A GitHub Actions <actions@users.noreply.github.com>' \
-    PKGEXT=.pkg.tar.zst \
+    PKGEXT=.pkg.tar.xz \
     PKGDEST="$workspace/dist" \
     makepkg "$@" --noconfirm --cleanbuild --clean --dir "$workspace/$package"
 
-  find "$workspace" -type f -name '*.pkg.tar.zst' \
+  find "$workspace" -type f -name '*.pkg.tar.xz' \
     ! -path "$workspace/dist/*" \
     -exec install -m0644 -t "$workspace/dist" -- {} +
 
-  if ! compgen -G "$workspace/dist/*.pkg.tar.zst" >/dev/null; then
+  if ! compgen -G "$workspace/dist/*.pkg.tar.xz" >/dev/null; then
     printf 'No package archive found after building %s\n' "$package" >&2
     exit 1
   fi
@@ -49,7 +49,7 @@ case "${1:-}" in
   prepare) prepare_builder ;;
   desktop) build_package alarm/z96a-niri-profile --syncdeps ;;
   validate-desktop)
-    pacman -U --noconfirm "$workspace"/dist/z96a-niri-profile-*.pkg.tar.zst
+    pacman -U --noconfirm "$workspace"/dist/z96a-niri-profile-*.pkg.tar.xz
     runuser -u "$builder" -- env \
       HOME=/home/builder \
       niri validate --config /usr/share/z96a-niri-profile/niri/config.kdl
