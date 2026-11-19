@@ -57,8 +57,11 @@ for symbol in \
   CONFIG_DMABUF_HEAPS=y \
   CONFIG_DMABUF_HEAPS_ROCKCHIP=y \
   CONFIG_DMABUF_HEAPS_ROCKCHIP_CMA_HEAP=y \
-  CONFIG_LOCALVERSION="-z96a-bsp61"; do
-  grep -Fxq "$symbol" "$tmpdir/config"
+  'CONFIG_LOCALVERSION="-z96a-bsp61"'; do
+  if ! grep -Fxq "$symbol" "$tmpdir/config"; then
+    printf 'Missing expected config option: %s\n' "$symbol" >&2
+    exit 1
+  fi
 done
 grep -Fxq '# CONFIG_ROCKCHIP_RKNPU_DRM_GEM is not set' "$tmpdir/config"
 grep -Fxq '# CONFIG_LOCALVERSION_AUTO is not set' "$tmpdir/config"
