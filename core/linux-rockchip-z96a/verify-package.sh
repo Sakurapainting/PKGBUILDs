@@ -81,22 +81,26 @@ npu=/npu@fde40000
 npu_mmu=/iommu@fde4b000
 compatible=$(fdtget -t s "$tmpdir/z96a.dtb" "$npu" compatible)
 grep -qw 'rockchip,rk3568-rknpu' <<<"$compatible"
-[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu" status)" == okay ]]
-[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu_mmu" status)" == okay ]]
+[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu" status)" == disabled ]]
+[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu_mmu" status)" == disabled ]]
 [[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu_mmu" compatible)" == rockchip,iommu-v2 ]]
 
-for property in clocks resets power-domains iommus operating-points-v2 rknpu-supply; do
+for property in clocks resets power-domains iommus operating-points-v2; do
   fdtget -t x "$tmpdir/z96a.dtb" "$npu" "$property" >/dev/null
 done
+if fdtget -t x "$tmpdir/z96a.dtb" "$npu" rknpu-supply >/dev/null 2>&1; then
+  printf '%s\n' 'Do not bind the NPU supply before the Z96A rail mapping is confirmed.' >&2
+  exit 1
+fi
 
 vdd_node=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ vdd_npu)
-npu_supply=$(fdtget -t x "$tmpdir/z96a.dtb" "$npu" rknpu-supply)
-vdd_phandle=$(fdtget -t x "$tmpdir/z96a.dtb" "$vdd_node" phandle)
-[[ "$npu_supply" == "$vdd_phandle" ]]
 [[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$vdd_node" regulator-name)" == vdd_npu ]]
 [[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-min-microvolt)" == 500000 ]]
-[[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-init-microvolt)" == 900000 ]]
 [[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-max-microvolt)" == 1350000 ]]
+if fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-init-microvolt >/dev/null 2>&1; then
+  printf '%s\n' 'Do not assign an NPU rail voltage before board-level verification.' >&2
+  exit 1
+fi
 
 opp_table=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ npu_opp_table)
 [[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$opp_table" rockchip,init-freq)" == 600000 ]]
@@ -117,10 +121,7 @@ od_opp=/npu-opp-table/opp-j-od-800000000
 [[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$od_opp" status)" == disabled ]]
 
 bus_npu=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ bus_npu)
-[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$bus_npu" status)" == okay ]]
-for property in bus-supply pvtm-supply; do
-  fdtget -t x "$tmpdir/z96a.dtb" "$bus_npu" "$property" >/dev/null
-done
+[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$bus_npu" status)" == disabled ]]
 
 if grep -Eq '/rknpu\.ko$' <<<"$members"; then
   printf '%s\n' 'RKNPU must be built into the kernel, not packaged as a module.' >&2

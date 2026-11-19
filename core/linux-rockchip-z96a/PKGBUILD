@@ -30,8 +30,8 @@ sha256sums=('SKIP'
             'c0522e1d271cbfb6b1fdc74051fea338fbf3a7d0927a94f29f92668736589004'
             'b452532ff756a79d9ebec706acc22ab1ca5b7a7d80b15c33c54d320ff59220e2'
             'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
-            'da771c26357d3d91343afa17db815e3518d9852f28c0a95fcc8ca3b420e1d8b8'
-            '1fc06088acc9e2978679dbbdbe440e04e6e27287a0daeae4bf09d370660cd76f')
+            'eaca242ef12bbadc0ea9706302c5de56089a9cf5a23ed2db365b91d52226b36d'
+            '5b069f16489d4e9f4026a7a2626ec4c27ed1e0dbb33c3ed13fef49bff719b3bf')
 
 prepare() {
   cd "${srcdir}/${_srcname}"

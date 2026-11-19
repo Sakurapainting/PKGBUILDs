@@ -4,11 +4,9 @@
 
 #include "rk3568-sunniwell-z96a-typec-board.dtsi"
 
-/* Match the RK3568 EVB bus supplies; the SoC DTS provides clocks and resets. */
+/* Do not enable the NPU bus until its board-level rail mapping is verified. */
 &bus_npu {
-	bus-supply = <&vdd_logic>;
-	pvtm-supply = <&vdd_cpu>;
-	status = "okay";
+	status = "disabled";
 };
 
 /* Cap both the initial frequency and available OPPs at the standard 600 MHz. */
@@ -26,10 +24,9 @@
 };
 
 &rknpu {
-	rknpu-supply = <&vdd_npu>;
-	status = "okay";
+	status = "disabled";
 };
 
 &rknpu_mmu {
-	status = "okay";
+	status = "disabled";
 };

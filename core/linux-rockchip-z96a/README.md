@@ -3,21 +3,21 @@
 This package builds Rockchip BSP Linux `6.1.172` from the Sakurapainting
 `rockchip-linux-kernel` fork, pinned to commit
 `77168c8d5ab82399f65a80e9f807b50ba37cf483`. RKNPU is built into the kernel
-using the BSP's Rockchip CMA DMA heap, IOMMU and 64 MiB CMA configuration.
+with the BSP's Rockchip CMA DMA heap, IOMMU and 64 MiB CMA configuration, but
+the NPU, MMU and bus nodes remain disabled in the Z96A DTB pending confirmation
+of the board's PMIC and NPU rail mapping.
 The `crypto_lz4` module is included for the systemd-based mkinitcpio hooks used
 by the Z96A image.
 
-The BSP DTS variant uses the Z96A board power definitions and separately
-enables the RK3568 RKNPU nodes following `rk3568-evb.dtsi` from that same BSP
-commit. The board DTS was ported to the BSP SoC's labels and graph, including
-its USB and HDMI endpoints; the mainline DTS patch is not applied verbatim.
-It uses the Z96A DTS's RK809 DCDC_REG4 as `vdd_npu`, initializes it at 900 mV
-within the declared 500-1350 mV range, and limits active NPU OPPs to the
-standard 600 MHz ceiling, including setting the OPP table's initial frequency
-to 600 MHz instead of the BSP SoC default of 900 MHz. The BSP's RK3568 clock,
-reset, power-domain, IOMMU and OPP definitions are inherited from its SoC DTS.
-The 800 MHz RK3568J overdrive OPP remains disabled. These are source-DTS
-constraints; no physical board power measurement has been performed.
+The BSP DTS variant uses the Z96A board definitions and BSP RK3568 SoC topology.
+The board DTS was ported to the BSP SoC's labels and graph, including its USB
+and HDMI endpoints; the mainline DTS patch is not applied verbatim. It keeps
+the RK3568 RKNPU nodes disabled pending board-level power confirmation.
+The BSP DTS preserves the Z96A regulator declaration, adds no initial voltage,
+does not attach that regulator to the NPU, and leaves the NPU, MMU and bus
+disabled until board-level PMIC and rail constraints are confirmed. Its NPU
+OPP table is capped at 600 MHz and the 800 MHz RK3568J overdrive OPP remains
+disabled, but those settings do not enable the device.
 
 ## Isolation
 
@@ -129,19 +129,22 @@ with `verify-package.sh`, exercises package/initramfs generation in a
 disposable CI rootfs, then uploads the package. It does not install anything
 on the Z96A.
 
-The verifier checks that RKNPU is `=y`, the CMA heap and IOMMU are enabled, the
-DTB resolves `rknpu-supply` to the Z96A `vdd_npu`, RKNPU and its MMU are enabled,
-clock/reset/power-domain/OPP/IOMMU properties are present, and no NPU OPP above
-600 MHz or enabled RK3568J overdrive node is present. It also checks that the
-package contains no mainline boot path and no `rknpu.ko`.
+The verifier checks that RKNPU is `=y`, the CMA heap and IOMMU are enabled,
+clock/reset/power-domain/OPP/IOMMU properties are present, the NPU, MMU and bus
+stay disabled without an attached supply, no NPU OPP above 600 MHz or enabled
+RK3568J overdrive node is present, and the package contains no mainline boot
+path or `rknpu.ko`.
 
 ## Device Acceptance
 
 No hardware boot or NPU inference has been performed by this package change.
-After the recovery gate passes and BSP boots, check `uname -r`, `dmesg` for
-RKNPU probe/IOMMU messages, `/dev/rknpu`, `/sys/kernel/debug/rknpu/`, and
-`/proc/rknpu/`. The BSP driver implements `version`, `load`, `power`, `freq`,
-`volt`, `delayms`, and `reset` under its debugfs/procfs directories.
+The current DTB deliberately does not probe RKNPU. Confirm the PMIC part and
+NPU rail routing from a Z96A schematic or safe electrical measurement before
+preparing a later DTB that enables it. After that evidence and the recovery
+gate pass, boot the BSP and check `uname -r`, `dmesg` for RKNPU probe/IOMMU
+messages, `/dev/rknpu`, `/sys/kernel/debug/rknpu/`, and `/proc/rknpu/`. The BSP
+driver implements `version`, `load`, `power`, `freq`, `volt`, `delayms`, and
+`reset` under its debugfs/procfs directories.
 
 For inference, use the official RKNN Runtime/Lite2 build for RK3568 and a
 compatible RKNN model. Record NPU `load`/`freq` and driver logs during the

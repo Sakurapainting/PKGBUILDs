@@ -276,7 +276,7 @@
 	status = "okay";
 };
 
-/* RKNPU is enabled only by the Rockchip BSP variant overlay. */
+/* Keep RKNPU disabled until the Z96A NPU rail mapping is confirmed. */
 
 &hdmi {
 	avdd-0v9-supply = <&vdda0v9_image>;
@@ -394,7 +394,6 @@
 				regulator-initial-mode = <0x2>;
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1350000>;
-				regulator-init-microvolt = <900000>;
 				regulator-ramp-delay = <6001>;
 
 				regulator-state-mem {
