@@ -56,6 +56,8 @@ jobs:
             /work/dist/linux-rockchip-z96a-6.1.172-1-aarch64.pkg.tar.xz
           sudo chroot "$ALARM_ROOT" /usr/bin/test ! -e \
             /boot/Image-rockchip-z96a-bsp61
+          sudo chroot "$ALARM_ROOT" /usr/bin/test -f \
+            /usr/lib/modules/6.1.172-1-z96a-bsp61/vmlinuz
           sudo chroot "$ALARM_ROOT" /usr/bin/mkinitcpio -p linux-rockchip-z96a
           sudo chroot "$ALARM_ROOT" /usr/bin/test -s \
             /boot/initramfs-linux-rockchip-z96a-bsp61.img

@@ -27,7 +27,7 @@ source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kerne
         'rk3568-sunniwell-z96a-typec-board.dtsi'
         'rk3568-sunniwell-z96a-typec-bsp61.dts')
 sha256sums=('SKIP'
-            '960bf65b1051e3dd826bcf2a387c8f6eb975a8bd3e12d36343d71673da6b54cb'
+            'c0522e1d271cbfb6b1fdc74051fea338fbf3a7d0927a94f29f92668736589004'
             'b452532ff756a79d9ebec706acc22ab1ca5b7a7d80b15c33c54d320ff59220e2'
             'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
             'da771c26357d3d91343afa17db815e3518d9852f28c0a95fcc8ca3b420e1d8b8'
@@ -79,6 +79,7 @@ build() {
   test -s arch/arm64/boot/Image
   test -s "arch/arm64/boot/dts/rockchip/${_dtb}.dtb"
   grep -a -q 'rockchip,rk3568-rknpu' arch/arm64/boot/Image
+  grep -Fxq 'CONFIG_CRYPTO_LZ4=m' .config
   test ! -e drivers/rknpu/rknpu.ko
 }
 
@@ -91,6 +92,9 @@ package() {
 
   install -Dm644 arch/arm64/boot/Image \
     "${pkgdir}/${_bootstagedir}/Image-rockchip-z96a-bsp61"
+  install -d "${modulesdir}"
+  ln -s "/${_bootstagedir}/Image-rockchip-z96a-bsp61" \
+    "${modulesdir}/vmlinuz"
   install -Dm644 "arch/arm64/boot/dts/rockchip/${_dtb}.dtb" \
     "${pkgdir}/${_bootstagedir}/dtbs-rockchip-z96a-bsp61/${_dtb}.dtb"
 

@@ -18,7 +18,9 @@ kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernel
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
 require_member "etc/mkinitcpio.d/linux-rockchip-z96a.preset"
+require_member "usr/lib/modules/${kernel_release}/vmlinuz"
 grep -Fq "usr/lib/modules/${kernel_release}/" <<<"$members"
+grep -Eq "^usr/lib/modules/${kernel_release}/kernel/crypto/lz4\\.ko(\\.(gz|xz|zst))?$" <<<"$members"
 
 if grep -Eq '^boot/' <<<"$members"; then
   printf '%s\n' 'BSP package must stage boot files outside /boot.' >&2
@@ -54,6 +56,7 @@ for symbol in \
   CONFIG_CMA=y \
   CONFIG_CMA_SIZE_SEL_MBYTES=y \
   CONFIG_CMA_SIZE_MBYTES=64 \
+  CONFIG_CRYPTO_LZ4=m \
   CONFIG_DMABUF_HEAPS=y \
   CONFIG_DMABUF_HEAPS_ROCKCHIP=y \
   CONFIG_DMABUF_HEAPS_ROCKCHIP_CMA_HEAP=y \

@@ -4,6 +4,8 @@ This package builds Rockchip BSP Linux `6.1.172` from the Sakurapainting
 `rockchip-linux-kernel` fork, pinned to commit
 `77168c8d5ab82399f65a80e9f807b50ba37cf483`. RKNPU is built into the kernel
 using the BSP's Rockchip CMA DMA heap, IOMMU and 64 MiB CMA configuration.
+The `crypto_lz4` module is included for the systemd-based mkinitcpio hooks used
+by the Z96A image.
 
 The BSP DTS variant uses the Z96A board power definitions and separately
 enables the RK3568 RKNPU nodes following `rk3568-evb.dtsi` from that same BSP
@@ -23,7 +25,8 @@ The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-1-z96a-bsp61/`
+- `/usr/lib/modules/6.1.172-1-z96a-bsp61/`, including a `vmlinuz` symlink
+  to the staged image for mkinitcpio discovery
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`, which generates
   `/boot/initramfs-linux-rockchip-z96a-bsp61.img`
 
