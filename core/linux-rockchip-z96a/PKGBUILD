@@ -1,0 +1,109 @@
+# Maintainer: Jun Yan <jerrysteve1101@gmail.com>
+
+buildarch=8
+
+pkgbase=linux-rockchip-z96a
+pkgname=linux-rockchip-z96a
+pkgver=6.1.172
+pkgrel=1
+pkgdesc='Rockchip BSP Linux kernel with built-in RKNPU support for Sunniwell Z96A'
+arch=('aarch64')
+url='https://github.com/Sakurapainting/rockchip-linux-kernel'
+license=('GPL-2.0-only')
+depends=('coreutils' 'kmod' 'mkinitcpio>=0.7')
+makedepends=('bc' 'bison' 'cpio' 'dtc' 'flex' 'git' 'kmod' 'libelf'
+             'openssl' 'pahole' 'perl' 'python' 'rsync')
+options=('!strip')
+
+_commit=77168c8d5ab82399f65a80e9f807b50ba37cf483
+_srcname=rockchip-linux-kernel
+_dtb=rk3568-sunniwell-z96a-typec-bsp61
+_bootstagedir="usr/lib/${pkgname}-bsp61"
+
+source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kernel.git#commit=${_commit}"
+        'z96a-bsp61.config'
+        'linux-rockchip-z96a.preset'
+        '0001-z96a-bsp61-dtb.patch'
+        'rk3568-sunniwell-z96a-typec-board.dtsi'
+        'rk3568-sunniwell-z96a-typec-bsp61.dts')
+sha256sums=('SKIP'
+            '960bf65b1051e3dd826bcf2a387c8f6eb975a8bd3e12d36343d71673da6b54cb'
+            'b452532ff756a79d9ebec706acc22ab1ca5b7a7d80b15c33c54d320ff59220e2'
+            'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
+            'da771c26357d3d91343afa17db815e3518d9852f28c0a95fcc8ca3b420e1d8b8'
+            '1fc06088acc9e2978679dbbdbe440e04e6e27287a0daeae4bf09d370660cd76f')
+
+prepare() {
+  cd "${srcdir}/${_srcname}"
+
+  printf '%s\n' "-${pkgrel}" > localversion.10-pkgrel
+  install -Dm644 "${srcdir}/z96a-bsp61.config" z96a-bsp61.config
+  install -Dm644 "${srcdir}/rk3568-sunniwell-z96a-typec-board.dtsi" \
+    arch/arm64/boot/dts/rockchip/rk3568-sunniwell-z96a-typec-board.dtsi
+  install -Dm644 "${srcdir}/rk3568-sunniwell-z96a-typec-bsp61.dts" \
+    "arch/arm64/boot/dts/rockchip/${_dtb}.dts"
+  patch -Np1 -i "${srcdir}/0001-z96a-bsp61-dtb.patch"
+
+  make ARCH=arm64 rockchip_linux_defconfig
+  scripts/kconfig/merge_config.sh -m .config z96a-bsp61.config
+  make ARCH=arm64 olddefconfig
+
+  grep -Fxq 'CONFIG_LOCALVERSION="-z96a-bsp61"' .config
+  grep -Fxq '# CONFIG_LOCALVERSION_AUTO is not set' .config
+  grep -Fxq 'CONFIG_ROCKCHIP_RKNPU=y' .config
+  grep -Fxq 'CONFIG_ROCKCHIP_RKNPU_DMA_HEAP=y' .config
+  grep -Fxq 'CONFIG_ROCKCHIP_RKNPU_DEBUG_FS=y' .config
+  grep -Fxq 'CONFIG_ROCKCHIP_RKNPU_PROC_FS=y' .config
+  grep -Fxq 'CONFIG_ROCKCHIP_IOMMU=y' .config
+  grep -Fxq 'CONFIG_DEBUG_FS=y' .config
+  grep -Fxq 'CONFIG_PROC_FS=y' .config
+  grep -Fxq 'CONFIG_CMA=y' .config
+  grep -Fxq 'CONFIG_CMA_SIZE_SEL_MBYTES=y' .config
+  grep -Fxq 'CONFIG_CMA_SIZE_MBYTES=64' .config
+  grep -Fxq 'CONFIG_DMABUF_HEAPS=y' .config
+  grep -Fxq 'CONFIG_DMABUF_HEAPS_ROCKCHIP=y' .config
+  grep -Fxq 'CONFIG_DMABUF_HEAPS_ROCKCHIP_CMA_HEAP=y' .config
+}
+
+build() {
+  cd "${srcdir}/${_srcname}"
+
+  make -s ARCH=arm64 prepare
+  make -s ARCH=arm64 kernelrelease > version
+  [[ "$(<version)" == "6.1.172-${pkgrel}-z96a-bsp61" ]]
+
+  make ${MAKEFLAGS} ARCH=arm64 Image modules
+  make ${MAKEFLAGS} ARCH=arm64 DTC_FLAGS='-@' \
+    "rockchip/${_dtb}.dtb"
+
+  test -s arch/arm64/boot/Image
+  test -s "arch/arm64/boot/dts/rockchip/${_dtb}.dtb"
+  grep -a -q 'rockchip,rk3568-rknpu' arch/arm64/boot/Image
+  test ! -e drivers/rknpu/rknpu.ko
+}
+
+package() {
+  cd "${srcdir}/${_srcname}"
+
+  local kernver="$(<version)"
+  local modulesdir="${pkgdir}/usr/lib/modules/${kernver}"
+  local docdir="${pkgdir}/usr/share/doc/${pkgname}"
+
+  install -Dm644 arch/arm64/boot/Image \
+    "${pkgdir}/${_bootstagedir}/Image-rockchip-z96a-bsp61"
+  install -Dm644 "arch/arm64/boot/dts/rockchip/${_dtb}.dtb" \
+    "${pkgdir}/${_bootstagedir}/dtbs-rockchip-z96a-bsp61/${_dtb}.dtb"
+
+  make INSTALL_MOD_PATH="${pkgdir}/usr" INSTALL_MOD_STRIP=1 \
+    DEPMOD=/doesnt/exist modules_install
+  rm -f "${modulesdir}/build" "${modulesdir}/source"
+
+  install -Dm644 .config "${docdir}/config"
+  install -Dm644 version "${docdir}/kernelrelease"
+  printf '%s\n' "${_commit}" > "${docdir}/source-commit"
+
+  sed "s|@KERNEL_RELEASE@|${kernver}|g" \
+    "${srcdir}/linux-rockchip-z96a.preset" |
+    install -Dm644 /dev/stdin \
+      "${pkgdir}/etc/mkinitcpio.d/${pkgname}.preset"
+}

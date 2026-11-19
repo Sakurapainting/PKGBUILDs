@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+
+#include "rk3568-sunniwell-z96a-typec-board.dtsi"
+
+/* Match the RK3568 EVB bus supplies; the SoC DTS provides clocks and resets. */
+&bus_npu {
+	bus-supply = <&vdd_logic>;
+	pvtm-supply = <&vdd_cpu>;
+	status = "okay";
+};
+
+/* Cap both the initial frequency and available OPPs at the standard 600 MHz. */
+&npu_opp_table {
+	rockchip,init-freq = <600000>;
+	/delete-node/ opp-700000000;
+	/delete-node/ opp-800000000;
+	/delete-node/ opp-900000000;
+	/delete-node/ opp-1000000000;
+	/delete-node/ opp-m-900000000;
+};
+
+&npu_opp_j_od_800000000 {
+	status = "disabled";
+};
+
+&rknpu {
+	rknpu-supply = <&vdd_npu>;
+	status = "okay";
+};
+
+&rknpu_mmu {
+	status = "okay";
+};

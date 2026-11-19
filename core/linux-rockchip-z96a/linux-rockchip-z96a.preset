@@ -1,0 +1,7 @@
+# mkinitcpio preset for the isolated RK3568 Rockchip BSP kernel.
+
+ALL_kver="@KERNEL_RELEASE@"
+
+PRESETS=('default')
+
+default_image="/boot/initramfs-linux-rockchip-z96a-bsp61.img"

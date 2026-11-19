@@ -1,0 +1,69 @@
+name: Z96A Rockchip BSP kernel
+
+on:
+  push:
+    branches:
+      - z96a-niri
+    tags:
+      - z96a-bsp-v*
+    paths:
+      - core/linux-rockchip-z96a/**
+      - .github/workflows/z96a-bsp-kernel.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    steps:
+      - name: Check out BSP package and build support
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            .github/scripts
+            core/archlinuxarm-keyring
+            core/linux-rockchip-z96a
+
+      - name: Bootstrap Arch Linux ARM
+        run: bash .github/scripts/bootstrap-alarm.sh
+
+      - name: Prepare package builder
+        run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh prepare
+
+      - name: Build pinned BSP kernel package
+        run: >-
+          sudo chroot "$ALARM_ROOT" /usr/bin/runuser -u builder -- env
+          HOME=/home/builder MAKEFLAGS=-j2
+          PACKAGER='Z96A BSP GitHub Actions <actions@users.noreply.github.com>'
+          PKGEXT=.pkg.tar.xz PKGDEST=/work/dist
+          /usr/bin/makepkg --syncdeps --cleanbuild --clean --noconfirm
+          --dir /work/core/linux-rockchip-z96a
+
+      - name: Verify package paths, final config and BSP DTB
+        run: >-
+          sudo chroot "$ALARM_ROOT" /usr/bin/bash
+          /work/core/linux-rockchip-z96a/verify-package.sh
+          /work/dist/linux-rockchip-z96a-6.1.172-1-aarch64.pkg.tar.xz
+
+      - name: Exercise package installation and initramfs preset in CI rootfs
+        run: |
+          sudo chroot "$ALARM_ROOT" /usr/bin/pacman -S --needed --noconfirm mkinitcpio
+          sudo chroot "$ALARM_ROOT" /usr/bin/pacman -U --noconfirm \
+            /work/dist/linux-rockchip-z96a-6.1.172-1-aarch64.pkg.tar.xz
+          sudo chroot "$ALARM_ROOT" /usr/bin/test ! -e \
+            /boot/Image-rockchip-z96a-bsp61
+          sudo chroot "$ALARM_ROOT" /usr/bin/mkinitcpio -p linux-rockchip-z96a
+          sudo chroot "$ALARM_ROOT" /usr/bin/test -s \
+            /boot/initramfs-linux-rockchip-z96a-bsp61.img
+
+      - name: Upload BSP package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: z96a-rockchip-bsp61
+          path: dist/linux-rockchip-z96a-*.pkg.tar.xz
+          if-no-files-found: error
+          retention-days: 30
