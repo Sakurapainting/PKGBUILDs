@@ -1,0 +1,15 @@
+Match the rk817-clkout child that the BSP MFD creates for RK809 and
+RK817. The clock driver's platform ID table takes precedence over its
+driver name and did not match this child. The driver already selects
+the RK817 clock operations for both PMIC variants.
+
+--- a/drivers/clk/clk-rk808.c
++++ b/drivers/clk/clk-rk808.c
+@@ -205,6 +205,7 @@
+ 	{ "rk809-clk", 0 },
+ 	{ "rk816-clk", 0 },
+ 	{ "rk817-clk", 0 },
++	{ "rk817-clkout", 0 },
+ 	{ "rk818-clk", 0 },
+ 	{ }
+ };

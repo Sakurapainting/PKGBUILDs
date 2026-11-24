@@ -4,6 +4,11 @@
 
 #include "rk3568-sunniwell-z96a-typec-board.dtsi"
 
+/* Preserve the clock routing without forcing the BSP VPLL to 132 MHz. */
+&vop {
+	/delete-property/ assigned-clock-rates;
+};
+
 /* Do not enable the NPU bus until its board-level rail mapping is verified. */
 &bus_npu {
 	status = "disabled";

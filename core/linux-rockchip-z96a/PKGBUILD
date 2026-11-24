@@ -5,7 +5,7 @@ buildarch=8
 pkgbase=linux-rockchip-z96a
 pkgname=linux-rockchip-z96a
 pkgver=6.1.172
-pkgrel=2
+pkgrel=3
 pkgdesc='Rockchip BSP Linux kernel with built-in RKNPU support for Sunniwell Z96A'
 arch=('aarch64')
 url='https://github.com/Sakurapainting/rockchip-linux-kernel'
@@ -24,14 +24,16 @@ source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kerne
         'z96a-bsp61.config'
         'linux-rockchip-z96a.preset'
         '0001-z96a-bsp61-dtb.patch'
+        '0002-rk808-clkout-match-rk817-mfd-cell.patch'
         'rk3568-sunniwell-z96a-typec-board.dtsi'
         'rk3568-sunniwell-z96a-typec-bsp61.dts')
 sha256sums=('SKIP'
             'c0522e1d271cbfb6b1fdc74051fea338fbf3a7d0927a94f29f92668736589004'
             '848d8d491ece4a225192b3d56500fff500af3c90b80d309dfe4ee883ca3231fb'
             'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
+            'bade90372a8df5977581c436d624c35e667fc5c6712bd91cba2201f8c2fbb268'
             'eaca242ef12bbadc0ea9706302c5de56089a9cf5a23ed2db365b91d52226b36d'
-            '5b069f16489d4e9f4026a7a2626ec4c27ed1e0dbb33c3ed13fef49bff719b3bf')
+            '46855ad57eb891e28cfe791d0478aad8ad624f0ab6e97d3c0cfc76cbbe163d4a')
 
 prepare() {
   cd "${srcdir}/${_srcname}"
@@ -43,6 +45,7 @@ prepare() {
   install -Dm644 "${srcdir}/rk3568-sunniwell-z96a-typec-bsp61.dts" \
     "arch/arm64/boot/dts/rockchip/${_dtb}.dts"
   patch -Np1 -i "${srcdir}/0001-z96a-bsp61-dtb.patch"
+  patch -Np1 -i "${srcdir}/0002-rk808-clkout-match-rk817-mfd-cell.patch"
 
   make ARCH=arm64 rockchip_linux_defconfig
   scripts/kconfig/merge_config.sh -m .config z96a-bsp61.config
@@ -50,6 +53,7 @@ prepare() {
 
   grep -Fxq 'CONFIG_LOCALVERSION="-z96a-bsp61"' .config
   grep -Fxq '# CONFIG_LOCALVERSION_AUTO is not set' .config
+  grep -Fxq 'CONFIG_COMMON_CLK_RK808=y' .config
   grep -Fxq 'CONFIG_ROCKCHIP_RKNPU=y' .config
   grep -Fxq 'CONFIG_ROCKCHIP_RKNPU_DMA_HEAP=y' .config
   grep -Fxq 'CONFIG_ROCKCHIP_RKNPU_DEBUG_FS=y' .config

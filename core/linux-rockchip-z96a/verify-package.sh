@@ -13,7 +13,7 @@ require_member() {
 }
 
 kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-[[ "$kernel_release" == 6.1.172-2-z96a-bsp61 ]]
+[[ "$kernel_release" == 6.1.172-3-z96a-bsp61 ]]
 
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
@@ -34,6 +34,7 @@ fi
 
 bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/config > "$tmpdir/config"
 for symbol in \
+  CONFIG_COMMON_CLK_RK808=y \
   CONFIG_ROCKCHIP_RKNPU=y \
   CONFIG_ROCKCHIP_RKNPU_DMA_HEAP=y \
   CONFIG_ROCKCHIP_RKNPU_DEBUG_FS=y \
@@ -64,6 +65,15 @@ grep -Fxq 'default_image="/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-
 bsdtar -xOf "$package" \
   usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb \
   > "$tmpdir/z96a.dtb"
+
+vop=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ vop)
+vop_properties=$(fdtget -p "$tmpdir/z96a.dtb" "$vop")
+grep -Fxq assigned-clocks <<<"$vop_properties"
+grep -Fxq assigned-clock-parents <<<"$vop_properties"
+if grep -Fxq assigned-clock-rates <<<"$vop_properties"; then
+  printf '%s\n' 'Do not force VOP clock rates in the BSP DTB.' >&2
+  exit 1
+fi
 
 npu=/npu@fde40000
 npu_mmu=/iommu@fde4b000
