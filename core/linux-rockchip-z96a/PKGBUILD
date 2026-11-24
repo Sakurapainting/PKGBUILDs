@@ -5,7 +5,7 @@ buildarch=8
 pkgbase=linux-rockchip-z96a
 pkgname=linux-rockchip-z96a
 pkgver=6.1.172
-pkgrel=1
+pkgrel=2
 pkgdesc='Rockchip BSP Linux kernel with built-in RKNPU support for Sunniwell Z96A'
 arch=('aarch64')
 url='https://github.com/Sakurapainting/rockchip-linux-kernel'
@@ -28,7 +28,7 @@ source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kerne
         'rk3568-sunniwell-z96a-typec-bsp61.dts')
 sha256sums=('SKIP'
             'c0522e1d271cbfb6b1fdc74051fea338fbf3a7d0927a94f29f92668736589004'
-            'b452532ff756a79d9ebec706acc22ab1ca5b7a7d80b15c33c54d320ff59220e2'
+            '848d8d491ece4a225192b3d56500fff500af3c90b80d309dfe4ee883ca3231fb'
             'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
             'eaca242ef12bbadc0ea9706302c5de56089a9cf5a23ed2db365b91d52226b36d'
             '5b069f16489d4e9f4026a7a2626ec4c27ed1e0dbb33c3ed13fef49bff719b3bf')
@@ -92,9 +92,7 @@ package() {
 
   install -Dm644 arch/arm64/boot/Image \
     "${pkgdir}/${_bootstagedir}/Image-rockchip-z96a-bsp61"
-  install -d "${modulesdir}"
-  ln -s "/${_bootstagedir}/Image-rockchip-z96a-bsp61" \
-    "${modulesdir}/vmlinuz"
+  # A modules/<release>/vmlinuz entry would trigger mkinitcpio at install time.
   install -Dm644 "arch/arm64/boot/dts/rockchip/${_dtb}.dtb" \
     "${pkgdir}/${_bootstagedir}/dtbs-rockchip-z96a-bsp61/${_dtb}.dtb"
 
@@ -106,6 +104,7 @@ package() {
   install -Dm644 version "${docdir}/kernelrelease"
   printf '%s\n' "${_commit}" > "${docdir}/source-commit"
 
+  install -d -m755 "${pkgdir}/var/lib/${pkgname}"
   sed "s|@KERNEL_RELEASE@|${kernver}|g" \
     "${srcdir}/linux-rockchip-z96a.preset" |
     install -Dm644 /dev/stdin \

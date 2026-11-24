@@ -13,36 +13,24 @@ require_member() {
 }
 
 kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-[[ "$kernel_release" == 6.1.172-1-z96a-bsp61 ]]
+[[ "$kernel_release" == 6.1.172-2-z96a-bsp61 ]]
 
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
 require_member "etc/mkinitcpio.d/linux-rockchip-z96a.preset"
-require_member "usr/lib/modules/${kernel_release}/vmlinuz"
-grep -Fq "usr/lib/modules/${kernel_release}/" <<<"$members"
+require_member var/lib/linux-rockchip-z96a/
+require_member "usr/lib/modules/${kernel_release}/modules.order"
 grep -Eq "^usr/lib/modules/${kernel_release}/kernel/crypto/lz4\\.ko(\\.(gz|xz|zst))?$" <<<"$members"
 
-if grep -Eq '^boot/' <<<"$members"; then
+if grep -Eq '^boot(/|$)' <<<"$members"; then
   printf '%s\n' 'BSP package must stage boot files outside /boot.' >&2
   exit 1
 fi
 
-if grep -Eq '^usr/lib/initcpio/' <<<"$members"; then
-  printf '%s\n' 'BSP package must not trigger the global mkinitcpio -P hook.' >&2
+if grep -E '^(usr/lib/modules/[^/]+/(vmlinuz|extramodules/?)$|usr/lib/initcpio/)' <<<"$members"; then
+  printf '%s\n' 'BSP package contains a mkinitcpio hook trigger.' >&2
   exit 1
 fi
-
-for forbidden in \
-  boot/Image \
-  boot/Image.gz \
-  boot/initramfs-linux.img \
-  boot/extlinux/extlinux.conf \
-  boot/dtbs/rockchip/rk3568-sunniwell-z96a-typec.dtb; do
-  if grep -Fxq "$forbidden" <<<"$members"; then
-    printf 'BSP package overlaps the mainline boot path: %s\n' "$forbidden" >&2
-    exit 1
-  fi
-done
 
 bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/config > "$tmpdir/config"
 for symbol in \
@@ -71,7 +59,7 @@ grep -Fxq '# CONFIG_LOCALVERSION_AUTO is not set' "$tmpdir/config"
 
 preset=$(bsdtar -xOf "$package" etc/mkinitcpio.d/linux-rockchip-z96a.preset)
 grep -Fxq "ALL_kver=\"${kernel_release}\"" <<<"$preset"
-grep -Fxq 'default_image="/boot/initramfs-linux-rockchip-z96a-bsp61.img"' <<<"$preset"
+grep -Fxq 'default_image="/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.img"' <<<"$preset"
 
 bsdtar -xOf "$package" \
   usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb \

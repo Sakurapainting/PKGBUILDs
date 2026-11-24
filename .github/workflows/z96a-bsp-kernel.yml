@@ -18,6 +18,8 @@ jobs:
   build:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 360
+    env:
+      BSP_PACKAGE: /work/dist/linux-rockchip-z96a-6.1.172-2-aarch64.pkg.tar.xz
     steps:
       - name: Check out BSP package and build support
         uses: actions/checkout@v4
@@ -47,20 +49,12 @@ jobs:
         run: >-
           sudo chroot "$ALARM_ROOT" /usr/bin/bash
           /work/core/linux-rockchip-z96a/verify-package.sh
-          /work/dist/linux-rockchip-z96a-6.1.172-1-aarch64.pkg.tar.xz
+          "$BSP_PACKAGE"
 
       - name: Exercise package installation and initramfs preset in CI rootfs
-        run: |
-          sudo chroot "$ALARM_ROOT" /usr/bin/pacman -S --needed --noconfirm mkinitcpio
-          sudo chroot "$ALARM_ROOT" /usr/bin/pacman -U --noconfirm \
-            /work/dist/linux-rockchip-z96a-6.1.172-1-aarch64.pkg.tar.xz
-          sudo chroot "$ALARM_ROOT" /usr/bin/test ! -e \
-            /boot/Image-rockchip-z96a-bsp61
-          sudo chroot "$ALARM_ROOT" /usr/bin/test -f \
-            /usr/lib/modules/6.1.172-1-z96a-bsp61/vmlinuz
-          sudo chroot "$ALARM_ROOT" /usr/bin/mkinitcpio -p linux-rockchip-z96a
-          sudo chroot "$ALARM_ROOT" /usr/bin/test -s \
-            /boot/initramfs-linux-rockchip-z96a-bsp61.img
+        run: >-
+          sudo chroot "$ALARM_ROOT" /usr/bin/bash
+          /work/core/linux-rockchip-z96a/verify-install.sh "$BSP_PACKAGE"
 
       - name: Upload BSP package artifact
         uses: actions/upload-artifact@v4

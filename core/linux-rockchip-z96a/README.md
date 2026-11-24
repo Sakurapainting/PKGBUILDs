@@ -25,27 +25,28 @@ The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-1-z96a-bsp61/`, including a `vmlinuz` symlink
-  to the staged image for mkinitcpio discovery
-- `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`, which generates
-  `/boot/initramfs-linux-rockchip-z96a-bsp61.img`
+- `/usr/lib/modules/6.1.172-2-z96a-bsp61/`
+- `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
+- `/var/lib/linux-rockchip-z96a/` for the generated initramfs
+- `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata
 
-The package contains no `/boot` files and does not modify `/boot`, the mainline
-modules, or the mainline DTB. It also contains no `/usr/lib/initcpio` trigger,
-because the system-wide mkinitcpio hook would rebuild every preset. Generate
-the BSP initramfs explicitly to a staging path, check that the Image, DTB and
-initramfs fit, then copy all three to uniquely named `/boot` paths. The
-mainline initramfs and extlinux configuration remain untouched until the
-separate manual boot-entry step. The BSP workflow uploads a package artifact
-and never deploys it to a device.
+Release `6.1.172-1` included a `vmlinuz` symlink under the BSP module directory.
+The Arch Linux ARM pacman hook matched it and generated the BSP initramfs in
+`/boot` during `pacman -U`. Use the corrected release `6.1.172-2` for staging.
+It omits the hook trigger and sets the preset output to
+`/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.img`.
+CI checks the BSP-only transaction with mkinitcpio already installed. Keep
+mkinitcpio and other package changes out of the device staging transaction
+so unrelated hooks cannot change the mainline files.
 
 ## Recovery Gate
 
-Device deployment is not yet authorized. The current board's `/boot` usage,
-mount layout, and exact files have not been measured in this workspace, and the
-FT232RL adapter has not arrived. Do not install the staging package before the
-UART recovery and backup checks. Do not copy anything to `/boot`, edit extlinux
-or reboot into BSP until the final capacity check below passes.
+The FT232R has received U-Boot and known-good mainline Linux output. A complete
+passive boot capture, U-Boot interruption and manual mainline boot are still
+pending. The current `/boot` capacity and exact files also need to be measured.
+Do not install the staging package before the UART and backup checks. Do not
+copy anything to `/boot`, edit extlinux or reboot into BSP until the final
+capacity check passes.
 
 1. Record `findmnt -T /boot` and `df -B1 -T /boot`. Inspect the package's
    uncompressed Image and DTB sizes. Do not use the previously reported 49 MiB
@@ -55,10 +56,12 @@ or reboot into BSP until the final capacity check below passes.
    verify exact copies of the mainline Image, initramfs, DTB and extlinux
    configuration outside `/boot` or on external storage. If there is no
    suitable backup location, stop; do not delete files to make one. Do not
-   overwrite any mainline file. The current mainline extlinux stanza uses
+   overwrite any mainline file. If recovery depends on booting the backup
+   from another partition or medium, test that path from U-Boot first.
+   The current mainline extlinux stanza uses
    `/Image`, `/initramfs-linux.img`, and
    `/dtbs/rockchip/rk3568-sunniwell-z96a-typec.dtb`.
-3. Before connecting the adapter to the board, verify its VCCIO circuitry and
+3. Before connecting adapter TXD to board RX, verify its VCCIO circuitry and
    jumper settings; measure TXD idle near 1.8 V, confirm RXD recognizes the
    board's 1.78 V TX and that the adapter supports 1.5 Mbps. Do not connect
    board VCC, 3.3 V or 5 V. Wire board TX to adapter RXD, board RX to adapter
@@ -67,18 +70,18 @@ or reboot into BSP until the final capacity check below passes.
    console can interrupt U-Boot, show its menu/command line, and manually boot
    the existing mainline entry. Until this succeeds, UART is not a recovery
    path and BSP must not be tested.
-5. Only after the UART and backup checks, install the BSP package. This does
-   not write to `/boot` or invoke `mkinitcpio -P`. Generate the initramfs to a
-   non-`/boot` staging path, then compare all three file sizes with current
-   `/boot` availability, reserving at least 1 MiB for filesystem allocation:
+5. After the UART and backup checks, confirm mkinitcpio is already installed
+   and use `pacman -U` to install only the verified `6.1.172-2` package. Run
+   the BSP preset explicitly. Compare the three file sizes with current `/boot`
+   availability, reserving at least 1 MiB for filesystem allocation.
 
    ```sh
    stage=/usr/lib/linux-rockchip-z96a-bsp61
    image="$stage/Image-rockchip-z96a-bsp61"
    dtb="$stage/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb"
-   initrd=/var/tmp/initramfs-linux-rockchip-z96a-bsp61.img
-   sudo mkinitcpio -k 6.1.172-1-z96a-bsp61 \
-     -g "$initrd"
+   initrd=/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.img
+   sudo mkinitcpio -p linux-rockchip-z96a
+   test -s "$initrd"
    required=$(stat -c %s "$image" "$dtb" "$initrd" |
      awk '{ total += $1 } END { print total + 1048576 }')
    available=$(df -B1 --output=avail /boot | tail -n 1 | tr -d ' ')
@@ -87,10 +90,9 @@ or reboot into BSP until the final capacity check below passes.
    ```
 
    If the test fails, do not copy anything to `/boot`, edit extlinux, or reboot.
-   Uninstall only the staging package with `sudo pacman -R linux-rockchip-z96a`
-   and leave the CI artifact as the deliverable; existing mainline files remain
-   untouched. If it fits, copy the three staged files to their unique `/boot`
-   paths:
+   Remove the generated staging initramfs and uninstall the staging package
+   with `sudo pacman -R linux-rockchip-z96a`. Keep the CI artifact. If the test
+   passes, copy the three staged files to their unique `/boot` paths:
 
    ```sh
    sudo install -Dm644 "$image" /boot/Image-rockchip-z96a-bsp61
@@ -101,7 +103,10 @@ or reboot into BSP until the final capacity check below passes.
    ```
 
    Then add the manual stanza below. Keep `default linux` and the existing
-   timeout unchanged. Do not change U-Boot environment or flash a bootloader.
+   `timeout 10`. Do not change U-Boot environment or flash a bootloader.
+   A later BSP package upgrade or preset run updates only the staging area.
+   Keep the deployed BSP Image, DTB and initramfs together when refreshing
+   the `linux-bsp61` entry.
 
 Manual extlinux stanza, to be appended only after the gate passes:
 
@@ -125,9 +130,11 @@ designed recovery path, not a hardware-validated one yet.
 The `Z96A Rockchip BSP kernel` Actions workflow runs only for changes under this
 package, its own workflow, manual dispatch, or the dedicated `z96a-bsp-v*` tag.
 It builds the pinned kernel package, checks its staged paths, config and DTB
-with `verify-package.sh`, exercises package/initramfs generation in a
-disposable CI rootfs, then uploads the package. It does not install anything
-on the Z96A.
+with `verify-package.sh`, and exercises installation and explicit preset
+execution with `verify-install.sh` in a disposable Arch Linux ARM rootfs. The
+workflow compares `/boot` manifests before install, after `pacman -U`, and
+after `mkinitcpio -p linux-rockchip-z96a`. It inspects the staged archive for
+the expected BSP release before uploading the package.
 
 The verifier checks that RKNPU is `=y`, the CMA heap and IOMMU are enabled,
 clock/reset/power-domain/OPP/IOMMU properties are present, the NPU, MMU and bus
