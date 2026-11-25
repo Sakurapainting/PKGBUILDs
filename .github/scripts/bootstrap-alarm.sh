@@ -24,6 +24,11 @@ sudo mkdir -p "$ALARM_ROOT"
 sudo bsdtar --numeric-owner --xattrs --acls -xpf "$archive" -C "$ALARM_ROOT"
 rm -- "$archive" "$archive.sig"
 
+if [[ -n ${ALARM_MIRROR:-} ]]; then
+  printf 'Server = %s/$arch/$repo\n' "${ALARM_MIRROR%/}" |
+    sudo tee "$ALARM_ROOT/etc/pacman.d/mirrorlist" >/dev/null
+fi
+
 # Give pacman a mount point for the rootfs and its package cache.
 sudo mount --bind "$ALARM_ROOT" "$ALARM_ROOT"
 sudo cp --remove-destination /etc/resolv.conf "$ALARM_ROOT/etc/resolv.conf"

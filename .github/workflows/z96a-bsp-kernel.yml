@@ -32,6 +32,8 @@ jobs:
 
       - name: Bootstrap Arch Linux ARM
         run: bash .github/scripts/bootstrap-alarm.sh
+        env:
+          ALARM_MIRROR: https://ca.us.mirror.archlinuxarm.org
 
       - name: Prepare package builder
         run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh prepare
