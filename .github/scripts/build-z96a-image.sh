@@ -81,7 +81,7 @@ label linux-bsp61
         kernel /Image
         initrd /initramfs.img
         devicetree /dtbs/rk3568-sunniwell-z96a-typec-bsp61.dtb
-        append earlycon=uart8250,mmio32,0xfe660000 console=tty0 console=ttyS0,1500000n8 root=PARTLABEL=ROOT rootwait rw
+        append earlycon=uart8250,mmio32,0xfe660000 console=tty0 console=ttyS0,1500000n8 root=PARTLABEL=ROOT rootwait rw movablecore=256M
 
 label linux-bsp61-recovery
         menu label Arch Linux ARM (Rockchip BSP, NPU disabled)

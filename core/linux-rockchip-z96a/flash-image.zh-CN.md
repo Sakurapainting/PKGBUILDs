@@ -1,6 +1,6 @@
 # Sunniwell Z96A Arch Linux ARM 烧录镜像
 
-镜像用于 RK3568 Z96A 的 eMMC。它包含干净的 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和本次 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。首启在控制台设置 root 密码，SSH 默认关闭。RKNN 用户态 Runtime 和桌面环境单独安装。
+镜像用于 RK3568 Z96A 的 eMMC。它包含干净的 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，该启动项带 `movablecore=256M`，用于规避 RKNPU 在这块板上使用高地址内存时出现的推理超时。菜单另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。首启在控制台设置 root 密码，SSH 默认关闭。RKNN 用户态 Runtime 和桌面环境单独安装。
 
 ## 适用分区布局
 
@@ -41,6 +41,6 @@ sudo rkdeveloptool rd
 
 首次启动可连接内屏键盘或 UART（Linux 控制台 `ttyS0`，1500000 8N1），按提示设置 root 密码。如果固件提示 `wait power key press down`，短按板子电源键。首次使用 pacman 前执行 `pacman-key --init` 和 `pacman-key --populate archlinuxarm`。
 
-已装 Arch Linux ARM 且希望保留当前系统和用户数据的设备，可以安装同一次 Actions 的 BSP 内核包并单独更新启动项。
+已装 Arch Linux ARM 且希望保留当前系统和用户数据的设备，可以安装 `layout.json` 中 `kernel_build_run_id` 所对应的 BSP 内核包，并在使用 RKNPU 的 BSP 启动项的 `append` 行添加 `movablecore=256M`。
 
 Rockchip 工具源代码和命令说明见 `https://github.com/rockchip-linux/rkdeveloptool`。
