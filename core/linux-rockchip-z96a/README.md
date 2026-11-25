@@ -2,31 +2,15 @@
 
 This package builds Rockchip BSP Linux `6.1.172` from the Sakurapainting
 `rockchip-linux-kernel` fork, pinned to commit
-`77168c8d5ab82399f65a80e9f807b50ba37cf483`. RKNPU is built into the kernel
-with the BSP's Rockchip CMA DMA heap, IOMMU and 64 MiB CMA configuration, but
-the NPU, MMU and bus nodes remain disabled in the Z96A DTB pending confirmation
-of the board's PMIC and NPU rail mapping.
-The `crypto_lz4` module is included for the systemd-based mkinitcpio hooks used
-by the Z96A image. Release `6.1.172-4` builds the RTL8822CS SDIO Wi-Fi driver
-from the Linux v6.4 rtw88 sources and depends on `linux-firmware-realtek`.
-The package records both kernel and rtw88 source commits. Release `6.1.172-5`
-adds upstream Linux commit `58de1f91e033` to use indirect SDIO device-register
-access before power-on. Release `6.1.172-6` enables the built-in BOE eDP panel
-and PWM backlight on VP1. It preserves the firmware-selected VPLL mode and
-skips the VOP IOMMU reset command that timed out during the first modeset.
-Release `6.1.172-7` adds Panfrost for the Mali-G52. Its GPU node uses the
-standard clock and interrupt names and the Z96A mainline operating points
-through 600 MHz.
+`77168c8d5ab82399f65a80e9f807b50ba37cf483`. The kernel includes Rockchip RKNPU,
+its CMA DMA heap, and the Rockchip IOMMU.
 
-The BSP DTS variant uses the Z96A board definitions and BSP RK3568 SoC topology.
-The board DTS was ported to the BSP SoC's labels and graph, including its USB
-and HDMI endpoints; the mainline DTS patch is not applied verbatim. It keeps
-the RK3568 RKNPU nodes disabled pending board-level power confirmation.
-The BSP DTS preserves the Z96A regulator declaration, adds no initial voltage,
-does not attach that regulator to the NPU, and leaves the NPU, MMU and bus
-disabled until board-level PMIC and rail constraints are confirmed. Its NPU
-OPP table is capped at 600 MHz and the 800 MHz RK3568J overdrive OPP remains
-disabled, but those settings do not enable the device.
+Release `6.1.172-8` enables the NPU and its IOMMU with the on-board RK809
+DCDC_REG4 (`vdd_npu`). The board's original DTB identifies the same regulator
+and specifies the default 875 mV at 600 MHz. The BSP DTS keeps the NPU OPPs
+through 600 MHz and the separate bus voltage scaler disabled. The RK3568J
+800 MHz overdrive OPP stays disabled. This configuration matches the DTB
+used for the 2026-11-25 RKNN hardware trial.
 
 ## Isolation
 
@@ -145,19 +129,30 @@ to their separate paths, and the original mainline Image, initramfs, and DTB
 still matched their recorded hashes. The extlinux default is `linux`.
 
 The verifier checks that RKNPU is `=y`, the CMA heap and IOMMU are enabled,
-clock/reset/power-domain/OPP/IOMMU properties are present, the NPU, MMU and bus
-stay disabled without an attached supply, no NPU OPP above 600 MHz or enabled
-RK3568J overdrive node is present, and the package contains no mainline boot
+clock/reset/power-domain/OPP/IOMMU properties are present, the NPU and IOMMU
+are enabled with the DCDC_REG4 supply, the separate bus scaler is disabled,
+no OPP above 600 MHz is enabled, and the package contains no mainline boot
 path or `rknpu.ko`. It also checks that the RK808 clock driver is built in
 and that the VOP clock assignments and parents are present without forced
 clock rates.
 
+### Actions artifacts
+
+- `z96a-rockchip-bsp61` contains the verified package and its SHA-256 digest.
+- `z96a-bsp-patches` includes the numbered package patches, DTS and config
+  inputs, and `bsp-to-z96a.patch`, the complete diff against the pinned BSP
+  commit, including the rtw88 import.
+- `z96a-rockchip-flash-image` contains the raw BOOT/ROOT image, compressed with
+  Zstandard, with layout, hashes and the [Rockchip flashing guide](flash-image.zh-CN.md).
+
 ## Device Acceptance
 
 The vendor U-Boot log reports `PMIC: RK8090` and `vdd_npu init 900000 uV`.
-Use those firmware-reported values when checking the PMIC and physical NPU
-rail against a Z96A schematic or electrical measurement. The BSP DTB keeps
-the NPU disabled pending that check.
+The DTB extracted from this board’s original Android boot partition confirms
+DCDC_REG4. The trial used RKNN Runtime 2.3.2 with a known-output FP16 model and
+measured RKNPU utilization. Some initial image-model runs on the default DMA
+heap returned incorrect classifications, while sustained image-model tests
+passed with a process-local switch to the uncached heap.
 
 The first `6.1.172-2` hardware boot on 2026-11-24 loaded all three BSP boot
 files through `sysboot -p` and entered the kernel. During `rockchip_drm_init`,

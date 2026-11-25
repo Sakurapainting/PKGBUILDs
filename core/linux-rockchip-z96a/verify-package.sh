@@ -13,7 +13,8 @@ require_member() {
 }
 
 kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-[[ "$kernel_release" == 6.1.172-7-z96a-bsp61 ]]
+[[ "$(basename "$package")" == "linux-rockchip-z96a-${kernel_release%-z96a-bsp61}-aarch64.pkg.tar.xz" ]]
+[[ "$kernel_release" == *-z96a-bsp61 ]]
 
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
@@ -165,19 +166,17 @@ npu=/npu@fde40000
 npu_mmu=/iommu@fde4b000
 compatible=$(fdtget -t s "$tmpdir/z96a.dtb" "$npu" compatible)
 grep -qw 'rockchip,rk3568-rknpu' <<<"$compatible"
-[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu" status)" == disabled ]]
-[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu_mmu" status)" == disabled ]]
+[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu" status)" == okay ]]
+[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu_mmu" status)" == okay ]]
 [[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$npu_mmu" compatible)" == rockchip,iommu-v2 ]]
 
 for property in clocks resets power-domains iommus operating-points-v2; do
   fdtget -t x "$tmpdir/z96a.dtb" "$npu" "$property" >/dev/null
 done
-if fdtget -t x "$tmpdir/z96a.dtb" "$npu" rknpu-supply >/dev/null 2>&1; then
-  printf '%s\n' 'Do not bind the NPU supply before the Z96A rail mapping is confirmed.' >&2
-  exit 1
-fi
-
-vdd_node=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ vdd_npu)
+[[ "$(fdtget -t x "$dtb" "$npu" iommus)" == "$(dtb_phandle rknpu_mmu)" ]]
+[[ "$(fdtget -t x "$dtb" "$npu" rknpu-supply)" == "$(dtb_phandle vdd_npu)" ]]
+vdd_node=$(dtb_node vdd_npu)
+[[ "$vdd_node" == /i2c@fdd40000/pmic@20/regulators/DCDC_REG4 ]]
 [[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$vdd_node" regulator-name)" == vdd_npu ]]
 [[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-min-microvolt)" == 500000 ]]
 [[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-max-microvolt)" == 1350000 ]]
@@ -188,18 +187,12 @@ fi
 
 opp_table=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ npu_opp_table)
 [[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$opp_table" rockchip,init-freq)" == 600000 ]]
-opp_nodes=$(fdtget -l "$tmpdir/z96a.dtb" "$opp_table")
-for forbidden_opp in \
-  opp-700000000 \
-  opp-800000000 \
-  opp-900000000 \
-  opp-1000000000 \
-  opp-m-900000000; do
-  if grep -Fxq "$forbidden_opp" <<<"$opp_nodes"; then
-    printf 'Unexpected NPU OPP is present: %s\n' "$forbidden_opp" >&2
-    exit 1
-  fi
-done
+[[ "$(fdtget -t u "$dtb" "$opp_table/opp-600000000" opp-microvolt)" == '875000 875000 1000000' ]]
+while read -r node; do
+  if [[ "$node" == opp-j-od-800000000 ]]; then continue; fi
+  read -r high low <<<"$(fdtget -t u "$dtb" "$opp_table/$node" opp-hz)"
+  [[ "$high" == 0 && "$low" -le 600000000 ]]
+done < <(fdtget -l "$dtb" "$opp_table")
 
 od_opp=/npu-opp-table/opp-j-od-800000000
 [[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$od_opp" status)" == disabled ]]

@@ -9,6 +9,8 @@ on:
     paths:
       - core/linux-rockchip-z96a/**
       - .github/workflows/z96a-bsp-kernel.yml
+      - .github/scripts/bootstrap-alarm.sh
+      - .github/scripts/build-z96a-image.sh
   workflow_dispatch:
 
 permissions:
@@ -18,8 +20,6 @@ jobs:
   build:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 360
-    env:
-      BSP_PACKAGE: /work/dist/linux-rockchip-z96a-6.1.172-7-aarch64.pkg.tar.xz
     steps:
       - name: Check out BSP package and build support
         uses: actions/checkout@v4
@@ -38,14 +38,28 @@ jobs:
       - name: Prepare package builder
         run: sudo chroot "$ALARM_ROOT" /usr/bin/bash /work/.github/scripts/build-in-alarm.sh prepare
 
+      - name: Prepare pinned BSP and export patch bundle
+        run: |
+          sudo chroot "$ALARM_ROOT" /usr/bin/runuser -u builder -- env \
+            HOME=/home/builder PKGDEST=/work/dist \
+            /usr/bin/makepkg --syncdeps --cleanbuild --nobuild --noconfirm \
+            --dir /work/core/linux-rockchip-z96a
+          bash core/linux-rockchip-z96a/export-patches.sh \
+            core/linux-rockchip-z96a core/linux-rockchip-z96a/src/rockchip-linux-kernel dist
+
       - name: Build pinned BSP kernel package
-        run: >-
-          sudo chroot "$ALARM_ROOT" /usr/bin/runuser -u builder -- env
-          HOME=/home/builder MAKEFLAGS=-j2
-          PACKAGER='Z96A BSP GitHub Actions <actions@users.noreply.github.com>'
-          PKGEXT=.pkg.tar.xz PKGDEST=/work/dist
-          /usr/bin/makepkg --syncdeps --cleanbuild --clean --noconfirm
-          --dir /work/core/linux-rockchip-z96a
+        run: |
+          sudo chroot "$ALARM_ROOT" /usr/bin/runuser -u builder -- env \
+            HOME=/home/builder MAKEFLAGS=-j2 \
+            PACKAGER='Z96A BSP GitHub Actions <actions@users.noreply.github.com>' \
+            PKGEXT=.pkg.tar.xz PKGDEST=/work/dist \
+            /usr/bin/makepkg --noextract --clean --noconfirm \
+            --dir /work/core/linux-rockchip-z96a
+          shopt -s nullglob
+          packages=(dist/linux-rockchip-z96a-*.pkg.tar.xz)
+          test "${#packages[@]}" -eq 1
+          echo "BSP_PACKAGE=/work/${packages[0]}" >> "$GITHUB_ENV"
+          (cd dist && sha256sum "${packages[0]##*/}" > BSP-SHA256SUMS)
 
       - name: Verify package paths, config, driver modules and BSP DTB
         run: >-
@@ -62,6 +76,64 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: z96a-rockchip-bsp61
-          path: dist/linux-rockchip-z96a-*.pkg.tar.xz
+          path: |
+            dist/linux-rockchip-z96a-*.pkg.tar.xz
+            dist/BSP-SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload the complete BSP source changes
+        uses: actions/upload-artifact@v4
+        with:
+          name: z96a-bsp-patches
+          path: dist/z96a-bsp-patches.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+
+  flash-image:
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    env:
+      ALARM_MIRROR: https://ca.us.mirror.archlinuxarm.org
+    steps:
+      - name: Check out image build and documentation
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            .github/scripts
+            core/archlinuxarm-keyring
+            core/linux-rockchip-z96a
+
+      - name: Download the verified BSP package from this build
+        uses: actions/download-artifact@v4
+        with:
+          name: z96a-rockchip-bsp61
+          path: dist
+
+      - name: Check the kernel package digest
+        working-directory: dist
+        run: sha256sum -c BSP-SHA256SUMS
+
+      - name: Install host filesystem tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y device-tree-compiler dosfstools e2fsprogs libarchive-tools mtools zstd
+
+      - name: Bootstrap a clean Arch Linux ARM filesystem
+        run: bash .github/scripts/bootstrap-alarm.sh
+
+      - name: Build and validate the RKDevTool BOOT and ROOT image
+        run: |
+          bash .github/scripts/build-z96a-image.sh "$ALARM_ROOT" \
+            dist/linux-rockchip-z96a-*.pkg.tar.xz dist/flash-image
+
+      - name: Upload RKDevTool image and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: z96a-rockchip-flash-image
+          path: dist/flash-image/
+          compression-level: 0
           if-no-files-found: error
           retention-days: 30

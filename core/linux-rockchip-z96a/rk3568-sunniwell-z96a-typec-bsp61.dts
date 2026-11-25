@@ -11,7 +11,7 @@
 	/delete-property/ assigned-clock-rates;
 };
 
-/* Do not enable the NPU bus until its board-level rail mapping is verified. */
+/* Keep the independent NPU bus voltage scaler off as in the hardware trial. */
 &bus_npu {
 	status = "disabled";
 };
@@ -24,6 +24,10 @@
 	/delete-node/ opp-900000000;
 	/delete-node/ opp-1000000000;
 	/delete-node/ opp-m-900000000;
+
+	opp-600000000 {
+		opp-microvolt = <875000 875000 1000000>;
+	};
 };
 
 &npu_opp_j_od_800000000 {
@@ -31,11 +35,12 @@
 };
 
 &rknpu {
-	status = "disabled";
+	rknpu-supply = <&vdd_npu>;
+	status = "okay";
 };
 
 &rknpu_mmu {
-	status = "disabled";
+	status = "okay";
 };
 
 / {
