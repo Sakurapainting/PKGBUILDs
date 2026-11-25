@@ -13,7 +13,7 @@ require_member() {
 }
 
 kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-[[ "$kernel_release" == 6.1.172-3-z96a-bsp61 ]]
+[[ "$kernel_release" == 6.1.172-4-z96a-bsp61 ]]
 
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
@@ -46,6 +46,11 @@ for symbol in \
   CONFIG_CMA_SIZE_SEL_MBYTES=y \
   CONFIG_CMA_SIZE_MBYTES=64 \
   CONFIG_CRYPTO_LZ4=m \
+  CONFIG_RTW88=m \
+  CONFIG_RTW88_CORE=m \
+  CONFIG_RTW88_SDIO=m \
+  CONFIG_RTW88_8822C=m \
+  CONFIG_RTW88_8822CS=m \
   CONFIG_DMABUF_HEAPS=y \
   CONFIG_DMABUF_HEAPS_ROCKCHIP=y \
   CONFIG_DMABUF_HEAPS_ROCKCHIP_CMA_HEAP=y \
@@ -57,6 +62,23 @@ for symbol in \
 done
 grep -Fxq '# CONFIG_ROCKCHIP_RKNPU_DRM_GEM is not set' "$tmpdir/config"
 grep -Fxq '# CONFIG_LOCALVERSION_AUTO is not set' "$tmpdir/config"
+
+rtw88_dir="usr/lib/modules/${kernel_release}/kernel/drivers/net/wireless/realtek/rtw88"
+rtw88_modules=(rtw88_core.ko rtw88_sdio.ko rtw88_8822c.ko rtw88_8822cs.ko)
+rtw88_members=()
+for module in "${rtw88_modules[@]}"; do
+  require_member "$rtw88_dir/$module"
+  rtw88_members+=("$rtw88_dir/$module")
+done
+bsdtar -xf "$package" -C "$tmpdir" "${rtw88_members[@]}"
+for module in "${rtw88_modules[@]}"; do
+  vermagic=$(modinfo -F vermagic "$tmpdir/$rtw88_dir/$module")
+  [[ "${vermagic%% *}" == "$kernel_release" ]]
+done
+modinfo -F alias "$tmpdir/$rtw88_dir/rtw88_8822cs.ko" | grep -Fx 'sdio:c*v024CdC822*'
+firmware=$(modinfo -F firmware "$tmpdir/$rtw88_dir/rtw88_8822c.ko")
+grep -Fx 'rtw88/rtw8822c_fw.bin' <<<"$firmware"
+grep -Fx 'rtw88/rtw8822c_wow_fw.bin' <<<"$firmware"
 
 preset=$(bsdtar -xOf "$package" etc/mkinitcpio.d/linux-rockchip-z96a.preset)
 grep -Fxq "ALL_kver=\"${kernel_release}\"" <<<"$preset"

@@ -17,7 +17,7 @@ snapshot_boot() {
   find /boot -type f -print0 | sort -z | xargs -0r sha256sum -z
 }
 
-pacman -S --needed --noconfirm mkinitcpio
+pacman -S --needed --noconfirm mkinitcpio linux-firmware-realtek
 # Require an existing mainline initramfs so the test covers a populated /boot.
 test -s /boot/initramfs-linux.img
 test ! -e "$initrd"
@@ -34,6 +34,17 @@ if grep -F 'Updating linux initcpios' "$workdir/pacman.log"; then
 fi
 test ! -e "$initrd"
 test -s "/usr/lib/modules/$kernel_release/modules.dep.bin"
+
+rtl8822cs_alias=sdio:c07v024CdC822
+modprobe -S "$kernel_release" --resolve-alias "$rtl8822cs_alias" | grep -Fx rtw88_8822cs
+rtw88_deps=$(modprobe -S "$kernel_release" --show-depends "$rtl8822cs_alias")
+for module in rtw88_core rtw88_sdio rtw88_8822c rtw88_8822cs; do
+  grep -F "/rtw88/$module.ko" <<<"$rtw88_deps"
+done
+for firmware in rtw8822c_fw.bin rtw8822c_wow_fw.bin; do
+  firmware_path="/usr/lib/firmware/rtw88/$firmware"
+  test -s "$firmware_path" || test -s "$firmware_path.zst" || test -s "$firmware_path.xz"
+done
 
 mkinitcpio -p "$pkgbase"
 test -s "$initrd"

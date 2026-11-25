@@ -7,7 +7,9 @@ with the BSP's Rockchip CMA DMA heap, IOMMU and 64 MiB CMA configuration, but
 the NPU, MMU and bus nodes remain disabled in the Z96A DTB pending confirmation
 of the board's PMIC and NPU rail mapping.
 The `crypto_lz4` module is included for the systemd-based mkinitcpio hooks used
-by the Z96A image.
+by the Z96A image. Release `6.1.172-4` builds the RTL8822CS SDIO Wi-Fi driver
+from the Linux v6.4 rtw88 sources and depends on `linux-firmware-realtek`.
+The package records both kernel and rtw88 source commits.
 
 The BSP DTS variant uses the Z96A board definitions and BSP RK3568 SoC topology.
 The board DTS was ported to the BSP SoC's labels and graph, including its USB
@@ -25,7 +27,7 @@ The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-3-z96a-bsp61/`
+- `/usr/lib/modules/6.1.172-4-z96a-bsp61/`
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
 - `/var/lib/linux-rockchip-z96a/` for the generated initramfs
 - `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata
@@ -75,61 +77,45 @@ rating and the adapter's VCCIO remain unverified.
 4. Use `Ctrl+C` at the U-Boot autoboot prompt. Verify that you can reach the
    menu or command line and manually boot the existing `linux` entry to the
    mainline login prompt. Complete this recovery test before testing BSP.
-5. After the UART and backup checks, confirm mkinitcpio is already installed
-   and use `pacman -U` to install only the new `6.1.172-3` package after CI
-   verifies it. Run the BSP preset explicitly. Compare the three file sizes
-   with current `/boot` availability, reserving at least 1 MiB for filesystem
-   allocation.
+5. After CI verifies `6.1.172-4`, confirm mkinitcpio and
+   `linux-firmware-realtek` are installed. Use `pacman -U` for the BSP package,
+   then run `mkinitcpio -p linux-rockchip-z96a` and confirm it produces the
+   staged initramfs. Compare the `/boot` file hashes before installation,
+   after `pacman -U`, and after running the preset.
+6. On the verified eMMC layout, stage the Image, DTB, initramfs and a separate
+   extlinux configuration together on the ext4 root partition, `/dev/mmcblk0p10`.
+   Run the following as root after confirming `/` is that partition.
 
    ```sh
-   stage=/usr/lib/linux-rockchip-z96a-bsp61
-   image="$stage/Image-rockchip-z96a-bsp61"
-   dtb="$stage/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb"
-   initrd=/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.img
-   sudo mkinitcpio -p linux-rockchip-z96a
-   test -s "$initrd"
-   required=$(stat -c %s "$image" "$dtb" "$initrd" |
-     awk '{ total += $1 } END { print total + 1048576 }')
-   available=$(df -B1 --output=avail /boot | tail -n 1 | tr -d ' ')
-   printf 'required=%s available=%s\n' "$required" "$available"
-   test "$available" -ge "$required"
+   stage=/var/lib/linux-rockchip-z96a/bootcheck-6.1.172-4
+   src=/usr/lib/linux-rockchip-z96a-bsp61
+   install -Dm644 "$src/Image-rockchip-z96a-bsp61" "$stage/Image"
+   install -m644 "$src/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb" "$stage/board.dtb"
+   install -m644 /var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.img "$stage/initramfs.img"
+   cat > "$stage/extlinux.conf" <<CFG
+   timeout 10
+   default linux-bsp61
+
+   label linux-bsp61
+           kernel $stage/Image
+           initrd $stage/initramfs.img
+           devicetree $stage/board.dtb
+           append earlycon=uart8250,mmio32,0xfe660000 root=PARTLABEL=ROOT rootwait rw
+   CFG
+   sync
    ```
 
-   If the test fails, do not copy anything to `/boot`, edit extlinux, or reboot.
-   Remove the generated staging initramfs and uninstall the staging package
-   with `sudo pacman -R linux-rockchip-z96a`. Keep the CI artifact. If the test
-   passes, copy the three staged files to their unique `/boot` paths:
+7. Interrupt the vendor U-Boot from the serial console and run this command
+   for the one-time BSP boot. This U-Boot uses hexadecimal partition numbers,
+   so `0:a` selects partition 10 on eMMC device 0.
 
-   ```sh
-   sudo install -Dm644 "$image" /boot/Image-rockchip-z96a-bsp61
-   sudo install -Dm644 "$dtb" \
-     /boot/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
-   sudo install -Dm644 "$initrd" \
-     /boot/initramfs-linux-rockchip-z96a-bsp61.img
+   ```text
+   sysboot mmc 0:a any 0x00c00000 /var/lib/linux-rockchip-z96a/bootcheck-6.1.172-4/extlinux.conf
    ```
 
-   Then add the manual stanza below. Keep `default linux` and the existing
-   `timeout 10`. Do not change U-Boot environment or flash a bootloader.
-   A later BSP package upgrade or preset run updates only the staging area.
-   Keep the deployed BSP Image, DTB and initramfs together when refreshing
-   the `linux-bsp61` entry.
-
-Manual extlinux stanza, to be appended only after the gate passes:
-
-```text
-label linux-bsp61
-        kernel /Image-rockchip-z96a-bsp61
-        initrd /initramfs-linux-rockchip-z96a-bsp61.img
-        devicetree /dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
-        append earlycon=uart8250,mmio32,0xfe660000 root=PARTLABEL=ROOT rootwait rw
-```
-
-The BSP entry is a one-time manual selection. If BSP fails, reset or power
-cycle, interrupt U-Boot using the already verified UART, and select `linux`;
-the unchanged default is also `linux`. Restore the saved extlinux configuration
-to remove the temporary entry. The original mainline paths stay untouched, so
-the recovery does not depend on SSH or on BSP booting successfully. The
-manual mainline boot was verified before BSP deployment.
+   If the BSP stops before login, reboot via the serial recovery path or
+   power cycle to start the regular `linux` entry. The BSP trial configuration
+   is separate from `/boot/extlinux/extlinux.conf`.
 
 ## Build Verification
 
@@ -140,7 +126,9 @@ with `verify-package.sh`, and exercises installation and explicit preset
 execution with `verify-install.sh` in a disposable Arch Linux ARM rootfs. The
 workflow compares `/boot` manifests before install, after `pacman -U`, and
 after `mkinitcpio -p linux-rockchip-z96a`. It inspects the staged archive for
-the expected BSP release before uploading the package.
+the expected BSP release before uploading the package. It checks that the
+RTL8822CS SDIO alias resolves to the driver and its three dependency modules.
+It also checks that both firmware files are installed.
 
 On 2026-11-24 the install and boot-file isolation checks passed on the
 Z96A for `6.1.172-2` with mkinitcpio `42.2-1`.
@@ -185,12 +173,14 @@ enumerate SDIO function `024C:C822` (Realtek RTL8822CS). This fixed SDIO
 enumeration, not Wi-Fi: the pinned BSP rtw88 does not support this SDIO part,
 and the test still showed only loopback.
 
-Release `6.1.172-3` carries the VOP DTB change and adds the MFD child's name
-to the clock driver's match table. Verify both fixes together by booting the
-new package without a manual driver override and recording serial login,
-`/sys/bus/sdio/devices`, and physical HDMI output. RTL8822CS driver support,
-Wi-Fi connectivity, and physical HDMI output have not yet been validated.
-The regular extlinux default remains `linux`.
+Release `6.1.172-3` boots with the VOP clock change and the `rk817-clkout`
+match. On 2026-11-25 it reached serial login, mounted the eMMC root read/write,
+and enumerated RTL8822CS without a manual clock-driver override. Temporarily
+loaded rtw88 modules then brought up `wlan0`, obtained an IPv4 address, and
+allowed SSH over Wi-Fi. Hardware acceptance for `6.1.172-4` checks whether
+udev loads the packaged modules and NetworkManager reconnects after reboot.
+Physical HDMI output has yet to be verified. The regular extlinux default
+remains `linux`.
 
 After verifying BSP boot and confirming the rail, boot a BSP build with
 RKNPU enabled and check `uname -r`, `dmesg` for RKNPU probe/IOMMU messages,

@@ -1,0 +1,7 @@
+--- a/include/linux/mmc/sdio_ids.h
++++ b/include/linux/mmc/sdio_ids.h
+@@ -135 +135,4 @@
++#define SDIO_VENDOR_ID_REALTEK			0x024c
++#define SDIO_DEVICE_ID_REALTEK_RTW8822CS	0xc822
++
+ #endif /* LINUX_MMC_SDIO_IDS_H */
