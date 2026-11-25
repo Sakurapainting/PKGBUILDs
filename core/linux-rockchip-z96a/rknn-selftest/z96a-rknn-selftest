@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+if [[ ${1:-} == --help ]]; then
+    printf 'Usage: %s [duration_seconds]\n' "${0##*/}"
+    printf 'Compare RK3568 NPU outputs to a CPU reference. Default: 5 seconds.\n'
+    exit 0
+fi
+if (( $# > 1 )); then
+    printf 'Usage: %s [duration_seconds]\n' "${0##*/}" >&2
+    exit 2
+fi
+if [[ ! -c /dev/rknpu ]]; then
+    printf 'RKNPU unavailable: /dev/rknpu is missing. Boot the NPU-enabled BSP.\n' >&2
+    exit 1
+fi
+if [[ ! -r /dev/rknpu || ! -w /dev/rknpu ]]; then
+    printf 'Access to /dev/rknpu is required. Run as root or use sudo.\n' >&2
+    exit 1
+fi
+
+exec /usr/bin/timeout --kill-after=2s 320s /usr/lib/z96a-rknn/conv-check \
+    /usr/share/z96a-rknn/conv.rknn "${1:-5}"

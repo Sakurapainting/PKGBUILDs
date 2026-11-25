@@ -1,6 +1,6 @@
 # Sunniwell Z96A Arch Linux ARM 烧录镜像
 
-镜像用于 RK3568 Z96A 的 eMMC。它包含干净的 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，该启动项带 `movablecore=256M`，用于规避 RKNPU 在这块板上使用高地址内存时出现的推理超时。菜单另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。首启在控制台设置 root 密码，SSH 默认关闭。RKNN 用户态 Runtime 和桌面环境单独安装。
+镜像用于 RK3568 Z96A 的 eMMC。它包含 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，该启动项带 `movablecore=256M`，用于规避 RKNPU 在这块板上使用高地址内存时出现的推理超时。菜单另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。首启在控制台设置 root 密码，SSH 默认关闭。桌面环境可单独安装。
 
 ## 适用分区布局
 
@@ -40,6 +40,14 @@ sudo rkdeveloptool rd
 ```
 
 首次启动可连接内屏键盘或 UART（Linux 控制台 `ttyS0`，1500000 8N1），按提示设置 root 密码。如果固件提示 `wait power key press down`，短按板子电源键。首次使用 pacman 前执行 `pacman-key --init` 和 `pacman-key --populate archlinuxarm`。
+
+## 首启工具和 RKNN 离线自检
+
+镜像自带 `fastfetch`、`iw`、`lsusb` 和 `fsck.fat`。首启登录后即可查看系统、无线网卡和 USB 设备状态。检查 BOOT 文件系统时先卸载该分区。
+
+在默认 BSP 下，以 root 运行 `z96a-rknn-selftest`。它用随镜像安装的 Rockchip RKNN Runtime 2.3.2 运行 RK3568 FP16 卷积，每次将 14,400 个输出与 CPU 参考值逐一比对。成功时打印 `PASS`，同时报告通过次数和最大偏差。默认运行 5 秒，可用 `z96a-rknn-selftest 30` 延长到 30 秒。普通用户可用 `sudo z96a-rknn-selftest`。
+
+运行库来自 Rockchip 的 RKNN Model Zoo `v2.3.2`，授权文本位于 `/usr/share/licenses/z96a-rknn/LICENSE`。自检模型的生成脚本在 BSP 源码的 `rknn-selftest/` 目录中。
 
 已装 Arch Linux ARM 且希望保留当前系统和用户数据的设备，可以安装 `layout.json` 中 `kernel_build_run_id` 所对应的 BSP 内核包，并在使用 RKNPU 的 BSP 启动项的 `append` 行添加 `movablecore=256M`。
 

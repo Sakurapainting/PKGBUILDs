@@ -20,11 +20,37 @@ sector_bytes=512
 release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
 image="z96a-archarm-${release}-boot-root.img"
 
+board_files="$GITHUB_WORKSPACE/core/linux-rockchip-z96a"
+selftest="$board_files/rknn-selftest"
+# Rockchip's v2.3.2 model zoo carries the same Linux runtime tested on Z96A.
+rknn_upstream=https://raw.githubusercontent.com/airockchip/rknn_model_zoo/bad6c7334531becaf90a561988519b7bec34d0ab
+rknn_files="$work/rknn"
+mkdir "$rknn_files"
+curl --fail --silent --show-error --location --retry 4 --max-time 60 \
+  "$rknn_upstream/3rdparty/rknpu2/Linux/aarch64/librknnrt.so" -o "$rknn_files/librknnrt.so"
+curl --fail --silent --show-error --location --retry 4 --max-time 60 \
+  "$rknn_upstream/3rdparty/rknpu2/include/rknn_api.h" -o "$rknn_files/rknn_api.h"
+curl --fail --silent --show-error --location --retry 4 --max-time 60 \
+  "$rknn_upstream/LICENSE" -o "$rknn_files/LICENSE"
+(
+  cd "$rknn_files"
+  sha256sum --check --strict <<'SHA256'
+d31fc19c85b85f6091b2bd0f6af9d962d5264a4e410bfb536402ec92bac738e8  librknnrt.so
+c48e11a6f41b451a5fd1e4ad774ea60252d3d94f78bee9b21ea3d21b21deba9a  rknn_api.h
+c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4  LICENSE
+SHA256
+)
+printf '%s  %s\n' 782e083e826d9b92cdc3f0ba914ea1c86ea35f55c69e8709bcfc5caf09e83846 \
+  "$selftest/conv.rknn" | sha256sum --check --strict
+cc -std=c11 -O2 -Wall -Wextra -I "$rknn_files" "$selftest/conv-check.c" \
+  -L "$rknn_files" -Wl,-rpath-link,"$rknn_files" -lrknnrt -lm -o "$rknn_files/conv-check"
+
 sudo chroot "$root" /bin/bash -s -- "/work/dist/${package##*/}" <<'CHROOT'
 set -euo pipefail
 pacman-key --init
 pacman-key --populate archlinuxarm
-pacman -Syu --noconfirm --needed mkinitcpio linux-firmware-realtek networkmanager sudo
+pacman -Syu --noconfirm --needed mkinitcpio linux-firmware-realtek networkmanager sudo \
+  fastfetch iw dosfstools usbutils libstdc++
 pacman -U --noconfirm "$1"
 if pacman -Q linux-aarch64 >/dev/null 2>&1; then
   pacman -R --noconfirm linux-aarch64
@@ -34,6 +60,27 @@ pacman -Q > /usr/share/z96a-image-packages.txt
 pacman -Scc --noconfirm
 if id alarm >/dev/null 2>&1; then userdel -r alarm; fi
 passwd -l root
+CHROOT
+
+sudo install -Dm0644 "$rknn_files/librknnrt.so" "$root/usr/lib/librknnrt.so"
+sudo install -Dm0755 "$rknn_files/conv-check" "$root/usr/lib/z96a-rknn/conv-check"
+sudo install -Dm0644 "$selftest/conv.rknn" "$root/usr/share/z96a-rknn/conv.rknn"
+sudo install -Dm0755 "$selftest/z96a-rknn-selftest" "$root/usr/bin/z96a-rknn-selftest"
+sudo install -Dm0644 "$rknn_files/LICENSE" "$root/usr/share/licenses/z96a-rknn/LICENSE"
+sudo chroot "$root" /bin/bash -eu <<'CHROOT'
+for tool in fastfetch iw fsck.fat lsusb z96a-rknn-selftest; do
+  command -v "$tool"
+done
+fastfetch --version
+z96a-rknn-selftest --help
+dependencies=$(ldd /usr/lib/z96a-rknn/conv-check)
+printf '%s\n' "$dependencies"
+[[ "$dependencies" == *'librknnrt.so => '* && "$dependencies" != *'not found'* ]]
+# With no arguments the native executable validates its CLI without using a device.
+if usage=$(/usr/lib/z96a-rknn/conv-check 2>&1); then
+  exit 1
+fi
+[[ "$usage" == 'Usage: /usr/lib/z96a-rknn/conv-check model.rknn duration_seconds' ]]
 CHROOT
 
 sudo systemctl --root="$root" disable sshd.service
@@ -108,8 +155,14 @@ e2fsck -fn "$work/ROOT.img"
 mkdir "$work/verified-boot"
 mcopy -i "$work/BOOT.img" -s ::/ "$work/verified-boot/"
 diff -r "$boot" "$work/verified-boot"
-for path in /usr/lib/modules/"$release"/modules.dep.bin /etc/fstab /usr/share/z96a-image-packages.txt; do
+for path in /usr/lib/modules/"$release"/modules.dep.bin /etc/fstab /usr/share/z96a-image-packages.txt \
+            /usr/bin/fastfetch /usr/bin/iw /usr/bin/fsck.fat /usr/bin/lsusb; do
   debugfs -R "stat $path" "$work/ROOT.img" 2>/dev/null | grep '^Inode:'
+done
+for path in /usr/bin/z96a-rknn-selftest /usr/lib/librknnrt.so /usr/lib/z96a-rknn/conv-check \
+            /usr/share/z96a-rknn/conv.rknn /usr/share/licenses/z96a-rknn/LICENSE; do
+  debugfs -R "dump $path $work/verified-rknn-file" "$work/ROOT.img"
+  cmp "$root$path" "$work/verified-rknn-file"
 done
 debugfs -R 'cat /etc/shadow' "$work/ROOT.img" 2>/dev/null | awk -F: '$1=="root" && $2 ~ /^!/ { locked=1 } $1=="alarm" { exit 1 } END { if (!locked) exit 1 }'
 debugfs -R 'cat /etc/machine-id' "$work/ROOT.img" 2>/dev/null | grep -Fx uninitialized
@@ -123,8 +176,8 @@ raw_bytes=$(((boot_sectors + root_sectors) * sector_bytes))
 actual_sha=$(zstd -dc "$output/$image.zst" | sha256sum | cut -d' ' -f1)
 [[ "$actual_sha" == "$raw_sha" ]]
 printf '%s  %s\n' "$raw_sha" "$image" > "$output/RAW-SHA256SUMS"
-cp "$GITHUB_WORKSPACE/core/linux-rockchip-z96a/flash-image.zh-CN.md" "$output/README.zh-CN.md"
-cp "$GITHUB_WORKSPACE/core/linux-rockchip-z96a/check-flash-layout.py" "$output/"
+cp "$board_files/flash-image.zh-CN.md" "$output/README.zh-CN.md"
+cp "$board_files/check-flash-layout.py" "$output/"
 cp "$boot/extlinux/extlinux.conf" "$output/extlinux.conf"
 cp "$root/usr/share/z96a-image-packages.txt" "$output/PACKAGES"
 cat > "$output/layout.json" <<LAYOUT
