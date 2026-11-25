@@ -4,8 +4,10 @@
 
 #include "rk3568-sunniwell-z96a-typec-board.dtsi"
 
-/* Preserve the clock routing without forcing the BSP VPLL to 132 MHz. */
+/* Keep the VPLL output mux in the mode selected by the bootloader. */
 &vop {
+	assigned-clocks = <&cru DCLK_VOP0>, <&cru DCLK_VOP1>;
+	assigned-clock-parents = <&pmucru PLL_HPLL>, <&cru PLL_VPLL>;
 	/delete-property/ assigned-clock-rates;
 };
 
@@ -34,4 +36,59 @@
 
 &rknpu_mmu {
 	status = "disabled";
+};
+
+/ {
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		brightness-levels = <20 220>;
+		default-brightness-level = <200>;
+		enable-gpios = <&gpio2 RK_PD5 GPIO_ACTIVE_HIGH>;
+		num-interpolated-steps = <200>;
+		power-supply = <&vcc3v3_sys>;
+		pwms = <&pwm9 0 25000 0>;
+	};
+};
+
+&edp_phy {
+	status = "okay";
+};
+
+&edp {
+	force-hpd;
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			edp_out_panel: endpoint {
+				remote-endpoint = <&panel_in_edp>;
+			};
+		};
+	};
+
+	aux-bus {
+		panel {
+			compatible = "edp-panel";
+			backlight = <&backlight>;
+			power-supply = <&vcc3v3_lcd0_n>;
+			no-hpd;
+
+			port {
+				panel_in_edp: endpoint {
+					remote-endpoint = <&edp_out_panel>;
+				};
+			};
+		};
+	};
+};
+
+&edp_in_vp1 {
+	status = "okay";
+};
+
+/* Keep VOP DMA translation and skip the failing MMU reset command. */
+&vop_mmu {
+	rockchip,disable-mmu-reset;
 };

@@ -13,7 +13,7 @@ require_member() {
 }
 
 kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-[[ "$kernel_release" == 6.1.172-5-z96a-bsp61 ]]
+[[ "$kernel_release" == 6.1.172-6-z96a-bsp61 ]]
 
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
@@ -40,6 +40,10 @@ for symbol in \
   CONFIG_ROCKCHIP_RKNPU_DEBUG_FS=y \
   CONFIG_ROCKCHIP_RKNPU_PROC_FS=y \
   CONFIG_ROCKCHIP_IOMMU=y \
+  CONFIG_ROCKCHIP_ANALOGIX_DP=y \
+  CONFIG_DRM_PANEL_EDP=y \
+  CONFIG_PHY_ROCKCHIP_NANENG_EDP=y \
+  CONFIG_BACKLIGHT_PWM=y \
   CONFIG_DEBUG_FS=y \
   CONFIG_PROC_FS=y \
   CONFIG_CMA=y \
@@ -88,14 +92,37 @@ bsdtar -xOf "$package" \
   usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb \
   > "$tmpdir/z96a.dtb"
 
-vop=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ vop)
-vop_properties=$(fdtget -p "$tmpdir/z96a.dtb" "$vop")
-grep -Fxq assigned-clocks <<<"$vop_properties"
-grep -Fxq assigned-clock-parents <<<"$vop_properties"
+dtb="$tmpdir/z96a.dtb"
+dtb_node() {
+  fdtget -t s "$dtb" /__symbols__ "$1"
+}
+dtb_phandle() {
+  fdtget -t x "$dtb" "$(dtb_node "$1")" phandle
+}
+
+vop=$(dtb_node vop)
+cru=$(dtb_phandle cru)
+pmucru=$(dtb_phandle pmucru)
+# RK3568 clock IDs for DCLK_VOP0, DCLK_VOP1, PLL_HPLL and PLL_VPLL.
+[[ "$(fdtget -t x "$dtb" "$vop" assigned-clocks)" == "$cru df $cru e0" ]]
+[[ "$(fdtget -t x "$dtb" "$vop" assigned-clock-parents)" == "$pmucru 2 $cru 5" ]]
+vop_properties=$(fdtget -p "$dtb" "$vop")
 if grep -Fxq assigned-clock-rates <<<"$vop_properties"; then
   printf '%s\n' 'Do not force VOP clock rates in the BSP DTB.' >&2
   exit 1
 fi
+[[ "$(fdtget -t x "$dtb" "$vop" iommus)" == "$(dtb_phandle vop_mmu)" ]]
+fdtget "$dtb" "$(dtb_node vop_mmu)" rockchip,disable-mmu-reset >/dev/null
+
+for symbol in edp edp_phy edp_in_vp1 pwm9; do
+  [[ "$(fdtget -t s "$dtb" "$(dtb_node "$symbol")" status)" == okay ]]
+done
+panel="$(dtb_node edp)/aux-bus/panel"
+[[ "$(fdtget -t s "$dtb" "$panel" compatible)" == edp-panel ]]
+[[ "$(fdtget -t x "$dtb" "$panel" power-supply)" == "$(dtb_phandle vcc3v3_lcd0_n)" ]]
+[[ "$(fdtget -t x "$dtb" "$panel" backlight)" == "$(dtb_phandle backlight)" ]]
+[[ "$(fdtget -t x "$dtb" "$(dtb_node edp_in_vp1)" remote-endpoint)" == "$(dtb_phandle vp1_out_edp)" ]]
+[[ "$(fdtget -t x "$dtb" "$(dtb_node edp_out_panel)" remote-endpoint)" == "$(dtb_phandle panel_in_edp)" ]]
 
 npu=/npu@fde40000
 npu_mmu=/iommu@fde4b000

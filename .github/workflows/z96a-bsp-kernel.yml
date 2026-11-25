@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 360
     env:
-      BSP_PACKAGE: /work/dist/linux-rockchip-z96a-6.1.172-5-aarch64.pkg.tar.xz
+      BSP_PACKAGE: /work/dist/linux-rockchip-z96a-6.1.172-6-aarch64.pkg.tar.xz
     steps:
       - name: Check out BSP package and build support
         uses: actions/checkout@v4
