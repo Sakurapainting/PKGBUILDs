@@ -42,8 +42,7 @@ for module in rtw88_core rtw88_sdio rtw88_8822c rtw88_8822cs; do
   grep -F "/rtw88/$module.ko" <<<"$rtw88_deps"
 done
 for firmware in rtw8822c_fw.bin rtw8822c_wow_fw.bin; do
-  firmware_path="/usr/lib/firmware/rtw88/$firmware"
-  test -s "$firmware_path" || test -s "$firmware_path.zst" || test -s "$firmware_path.xz"
+  test -s "/usr/lib/firmware/rtw88/$firmware"
 done
 
 mkinitcpio -p "$pkgbase"

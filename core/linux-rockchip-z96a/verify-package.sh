@@ -13,7 +13,7 @@ require_member() {
 }
 
 kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-[[ "$kernel_release" == 6.1.172-4-z96a-bsp61 ]]
+[[ "$kernel_release" == 6.1.172-5-z96a-bsp61 ]]
 
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb

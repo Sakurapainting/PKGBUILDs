@@ -9,7 +9,9 @@ of the board's PMIC and NPU rail mapping.
 The `crypto_lz4` module is included for the systemd-based mkinitcpio hooks used
 by the Z96A image. Release `6.1.172-4` builds the RTL8822CS SDIO Wi-Fi driver
 from the Linux v6.4 rtw88 sources and depends on `linux-firmware-realtek`.
-The package records both kernel and rtw88 source commits.
+The package records both kernel and rtw88 source commits. Release `6.1.172-5`
+adds upstream Linux commit `58de1f91e033` to use indirect SDIO device-register
+access before power-on.
 
 The BSP DTS variant uses the Z96A board definitions and BSP RK3568 SoC topology.
 The board DTS was ported to the BSP SoC's labels and graph, including its USB
@@ -27,7 +29,7 @@ The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-4-z96a-bsp61/`
+- `/usr/lib/modules/6.1.172-5-z96a-bsp61/`
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
 - `/var/lib/linux-rockchip-z96a/` for the generated initramfs
 - `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata
@@ -77,7 +79,7 @@ rating and the adapter's VCCIO remain unverified.
 4. Use `Ctrl+C` at the U-Boot autoboot prompt. Verify that you can reach the
    menu or command line and manually boot the existing `linux` entry to the
    mainline login prompt. Complete this recovery test before testing BSP.
-5. After CI verifies `6.1.172-4`, confirm mkinitcpio and
+5. After CI verifies `6.1.172-5`, confirm mkinitcpio and
    `linux-firmware-realtek` are installed. Use `pacman -U` for the BSP package,
    then run `mkinitcpio -p linux-rockchip-z96a` and confirm it produces the
    staged initramfs. Compare the `/boot` file hashes before installation,
@@ -87,7 +89,7 @@ rating and the adapter's VCCIO remain unverified.
    Run the following as root after confirming `/` is that partition.
 
    ```sh
-   stage=/var/lib/linux-rockchip-z96a/bootcheck-6.1.172-4
+   stage=/var/lib/linux-rockchip-z96a/bootcheck-6.1.172-5
    src=/usr/lib/linux-rockchip-z96a-bsp61
    install -Dm644 "$src/Image-rockchip-z96a-bsp61" "$stage/Image"
    install -m644 "$src/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb" "$stage/board.dtb"
@@ -110,7 +112,7 @@ rating and the adapter's VCCIO remain unverified.
    so `0:a` selects partition 10 on eMMC device 0.
 
    ```text
-   sysboot mmc 0:a any 0x00c00000 /var/lib/linux-rockchip-z96a/bootcheck-6.1.172-4/extlinux.conf
+   sysboot mmc 0:a any 0x00c00000 /var/lib/linux-rockchip-z96a/bootcheck-6.1.172-5/extlinux.conf
    ```
 
    If the BSP stops before login, reboot via the serial recovery path or
@@ -177,8 +179,11 @@ Release `6.1.172-3` boots with the VOP clock change and the `rk817-clkout`
 match. On 2026-11-25 it reached serial login, mounted the eMMC root read/write,
 and enumerated RTL8822CS without a manual clock-driver override. Temporarily
 loaded rtw88 modules then brought up `wlan0`, obtained an IPv4 address, and
-allowed SSH over Wi-Fi. Hardware acceptance for `6.1.172-4` checks whether
-udev loads the packaged modules and NetworkManager reconnects after reboot.
+allowed SSH over Wi-Fi. Release `6.1.172-4` booted from the eMMC root and
+loaded the packaged modules automatically, but repeatedly logged
+`unsupported rf path (1)` and failed to associate. Reloading the packaged
+modules restored Wi-Fi. Hardware acceptance for `6.1.172-5` checks whether
+NetworkManager reconnects automatically after initial driver probe.
 Physical HDMI output has yet to be verified. The regular extlinux default
 remains `linux`.
 

@@ -5,7 +5,7 @@ buildarch=8
 pkgbase=linux-rockchip-z96a
 pkgname=linux-rockchip-z96a
 pkgver=6.1.172
-pkgrel=4
+pkgrel=5
 pkgdesc='Rockchip BSP Linux kernel with built-in RKNPU support for Sunniwell Z96A'
 arch=('aarch64')
 url='https://github.com/Sakurapainting/rockchip-linux-kernel'
@@ -31,6 +31,7 @@ source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kerne
         'rk3568-sunniwell-z96a-typec-board.dtsi'
         'rk3568-sunniwell-z96a-typec-bsp61.dts'
         '0003-mmc-sdio-add-rtl8822cs-ids.patch'
+        '0004-rtw88-sdio-use-indirect-io-before-power-on.patch'
         "${_rtw88_archive}::https://codeload.github.com/torvalds/linux/tar.gz/${_rtw88_commit}")
 noextract=("${_rtw88_archive}")
 sha256sums=('SKIP'
@@ -41,6 +42,7 @@ sha256sums=('SKIP'
             'eaca242ef12bbadc0ea9706302c5de56089a9cf5a23ed2db365b91d52226b36d'
             '46855ad57eb891e28cfe791d0478aad8ad624f0ab6e97d3c0cfc76cbbe163d4a'
             '37702117ad306eccf045b50bb81a9ee18a6857e8c230d1f97e3dc1e951dd0f3a'
+            'f384f6f04a20d8fbf1bedd24338b70477208cafce67e6632e6635aa200e4248c'
             '831b519b0ea3369130724bf0ca306be94cc7487f02d418962c98cb04f714b322')
 
 prepare() {
@@ -59,6 +61,7 @@ prepare() {
   local rtw88_dir=drivers/net/wireless/realtek/rtw88
   bsdtar -xf "${srcdir}/${_rtw88_archive}" -C "$rtw88_dir" \
     --strip-components 6 "linux-${_rtw88_commit}/${rtw88_dir}"
+  patch -Np1 -i "${srcdir}/0004-rtw88-sdio-use-indirect-io-before-power-on.patch"
 
   make ARCH=arm64 rockchip_linux_defconfig
   scripts/kconfig/merge_config.sh -m .config z96a-bsp61.config
