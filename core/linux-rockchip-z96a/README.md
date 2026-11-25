@@ -18,7 +18,7 @@ The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-7-z96a-bsp61/`
+- `/usr/lib/modules/6.1.172-8-z96a-bsp61/`
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
 - `/var/lib/linux-rockchip-z96a/` for the generated initramfs
 - `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata
@@ -68,7 +68,7 @@ rating and the adapter's VCCIO remain unverified.
 4. Use `Ctrl+C` at the U-Boot autoboot prompt. Verify that you can reach the
    menu or command line and manually boot the existing `linux` entry to the
    mainline login prompt. Complete this recovery test before testing BSP.
-5. After CI verifies `6.1.172-7`, confirm mkinitcpio and
+5. After CI verifies `6.1.172-8`, confirm mkinitcpio and
    `linux-firmware-realtek` are installed. Use `pacman -U` for the BSP package,
    then run `mkinitcpio -p linux-rockchip-z96a` and confirm it produces the
    staged initramfs. Compare the `/boot` file hashes before installation,
@@ -78,7 +78,7 @@ rating and the adapter's VCCIO remain unverified.
    Run the following as root after confirming `/` is that partition.
 
    ```sh
-   stage=/var/lib/linux-rockchip-z96a/bootcheck-6.1.172-7
+   stage=/var/lib/linux-rockchip-z96a/bootcheck-6.1.172-8
    src=/usr/lib/linux-rockchip-z96a-bsp61
    install -Dm644 "$src/Image-rockchip-z96a-bsp61" "$stage/Image"
    install -m644 "$src/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb" "$stage/board.dtb"
@@ -101,17 +101,23 @@ rating and the adapter's VCCIO remain unverified.
    so `0:a` selects partition 10 on eMMC device 0.
 
    ```text
-   sysboot mmc 0:a any 0x00c00000 /var/lib/linux-rockchip-z96a/bootcheck-6.1.172-7/extlinux.conf
+   sysboot mmc 0:a any 0x00c00000 /var/lib/linux-rockchip-z96a/bootcheck-6.1.172-8/extlinux.conf
    ```
 
-   If the BSP stops before login, reboot via the serial recovery path or
-   power cycle to start the regular `linux` entry. The BSP trial configuration
-   is separate from `/boot/extlinux/extlinux.conf`.
+   If the BSP stops before login, select the saved `linux` entry in the regular
+   extlinux menu. The BSP trial uses its own config on the root filesystem.
+8. After the trial passes, back up the existing BSP files and extlinux config
+   outside `/boot`. Install the tested BSP Image, initramfs and DTB into their
+   matching BSP paths on the FAT partition. Check the mainline file hashes,
+   set `default linux-bsp61` in `/boot/extlinux/extlinux.conf`, and verify the
+   default through a normal U-Boot boot. The `linux` menu entry remains the
+   installed system's mainline recovery entry.
 
 ## Build Verification
 
 The `Z96A Rockchip BSP kernel` Actions workflow runs only for changes under this
-package, its own workflow, manual dispatch, or the dedicated `z96a-bsp-v*` tag.
+package, the BSP workflow and image scripts, manual dispatch, or a dedicated
+`z96a-bsp-v*` tag.
 It builds the pinned kernel package, checks its staged paths, config and DTB
 with `verify-package.sh`, and exercises installation and explicit preset
 execution with `verify-install.sh` in a disposable Arch Linux ARM rootfs. The
@@ -194,17 +200,9 @@ usably accelerated renderer. A separate test kernel with the Panfrost
 configuration and GPU DTB for `6.1.172-7` reached a visible Niri Wayland
 desktop at 1920×1080 at 60.024 Hz. The Niri process opened the Mali-G52
 render node and Wi-Fi connected automatically.
-Physical HDMI output has yet to be verified. The regular extlinux default
-remains `linux`.
+Physical HDMI output has yet to be verified.
 
-After verifying BSP boot and confirming the rail, boot a BSP build with
-RKNPU enabled and check `uname -r`, `dmesg` for RKNPU probe/IOMMU messages,
-`/dev/rknpu`, `/sys/kernel/debug/rknpu/`, and `/proc/rknpu/`. The BSP driver
-implements `version`, `load`, `power`, `freq`, `volt`, `delayms`, and `reset`
-under its debugfs/procfs directories.
-
-For inference, use the official RKNN Runtime/Lite2 build for RK3568 and a
-compatible RKNN model. Record NPU `load`/`freq` and driver logs during the
-vision example, and verify that utilization/frequency changes during the run;
-a successful output alone does not prove execution on NPU. Do not report NPU
-validation until that hardware test is complete.
+For RKNPU smoke testing, confirm the BSP release, the driver and IOMMU probe
+messages, and `/dev/rknpu`. Use a known-output model and the official RKNN
+Runtime for RK3568 to compare inference with CPU reference values while reading
+`load` and `freq` under `/sys/kernel/debug/rknpu/` or `/proc/rknpu/`.
