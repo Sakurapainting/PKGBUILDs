@@ -81,14 +81,14 @@ label linux-bsp61
         kernel /Image
         initrd /initramfs.img
         devicetree /dtbs/rk3568-sunniwell-z96a-typec-bsp61.dtb
-        append earlycon=uart8250,mmio32,0xfe660000 console=tty0 console=ttyS0,115200n8 root=PARTLABEL=ROOT rootwait rw
+        append earlycon=uart8250,mmio32,0xfe660000 console=tty0 console=ttyS0,1500000n8 root=PARTLABEL=ROOT rootwait rw
 
 label linux-bsp61-recovery
         menu label Arch Linux ARM (Rockchip BSP, NPU disabled)
         kernel /Image
         initrd /initramfs.img
         devicetree /dtbs/z96a-bsp61-recovery.dtb
-        append earlycon=uart8250,mmio32,0xfe660000 console=tty0 console=ttyS0,115200n8 root=PARTLABEL=ROOT rootwait rw systemd.unit=multi-user.target
+        append earlycon=uart8250,mmio32,0xfe660000 console=tty0 console=ttyS0,1500000n8 root=PARTLABEL=ROOT rootwait rw systemd.unit=multi-user.target
 EXTLINUX
 
 # Keep all CI mounts and host device nodes out of the filesystem image.
@@ -124,6 +124,7 @@ actual_sha=$(zstd -dc "$output/$image.zst" | sha256sum | cut -d' ' -f1)
 [[ "$actual_sha" == "$raw_sha" ]]
 printf '%s  %s\n' "$raw_sha" "$image" > "$output/RAW-SHA256SUMS"
 cp "$GITHUB_WORKSPACE/core/linux-rockchip-z96a/flash-image.zh-CN.md" "$output/README.zh-CN.md"
+cp "$GITHUB_WORKSPACE/core/linux-rockchip-z96a/check-flash-layout.py" "$output/"
 cp "$boot/extlinux/extlinux.conf" "$output/extlinux.conf"
 cp "$root/usr/share/z96a-image-packages.txt" "$output/PACKAGES"
 cat > "$output/layout.json" <<LAYOUT
@@ -139,4 +140,4 @@ cat > "$output/layout.json" <<LAYOUT
   "root": {"partlabel": "ROOT", "start_lba": $root_lba, "image_sectors": $root_sectors}
 }
 LAYOUT
-(cd "$output" && sha256sum "$image.zst" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md > SHA256SUMS)
+(cd "$output" && sha256sum "$image.zst" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md check-flash-layout.py > SHA256SUMS)

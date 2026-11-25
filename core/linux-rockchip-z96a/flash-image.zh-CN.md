@@ -23,12 +23,13 @@ zstd -d -- *.img.zst
 sha256sum -c RAW-SHA256SUMS
 ```
 
-通过 USB 进入 Rockusb Loader 后，确认只连了一台目标设备，并核对目标存储为 eMMC、GPT 名称、起始 LBA 和长度。使用 `rkdeveloptool` 的 `ld`、`rfi` 和 `ppt`。如果目标显示为 Maskrom，先用该板适用的已验证 Loader 进入 Rockusb，再检查布局。镜像不包含 Loader。
+通过 USB 进入 Rockusb Loader 后，确认只连了一台目标设备，并用 `rfi` 核对存储为 eMMC。用 `rl` 只读提取 GPT，再用镜像附带的脚本核验分区名、起始 LBA、长度及写入范围。若设备显示为 Maskrom，先用该板适用的 Loader 进入 Rockusb。镜像不包含 Loader。
 
 ```sh
 sudo rkdeveloptool ld
 sudo rkdeveloptool rfi
-sudo rkdeveloptool ppt
+sudo rkdeveloptool rl 0 128 gpt.bin
+python3 check-flash-layout.py layout.json gpt.bin
 ```
 
 布局全部匹配后，在已解压镜像的目录中按 `0x2E800` 写入，然后重启。使用 RKDevTool 图形界面时选择同一裸镜像和同一扇区地址。LBA `0` 对应 GPT 所在区域。
@@ -38,7 +39,7 @@ sudo rkdeveloptool wl 0x2E800 ./*.img
 sudo rkdeveloptool rd
 ```
 
-首次启动可连接内屏键盘或 UART（Linux 控制台 `ttyS0`，115200 8N1），按提示设置 root 密码。如果固件提示 `wait power key press down`，短按板子电源键。首次使用 pacman 前执行 `pacman-key --init` 和 `pacman-key --populate archlinuxarm`。
+首次启动可连接内屏键盘或 UART（Linux 控制台 `ttyS0`，1500000 8N1），按提示设置 root 密码。如果固件提示 `wait power key press down`，短按板子电源键。首次使用 pacman 前执行 `pacman-key --init` 和 `pacman-key --populate archlinuxarm`。
 
 已装 Arch Linux ARM 且希望保留当前系统和用户数据的设备，可以安装同一次 Actions 的 BSP 内核包并单独更新启动项。
 

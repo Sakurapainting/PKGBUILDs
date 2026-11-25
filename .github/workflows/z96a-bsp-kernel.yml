@@ -44,8 +44,9 @@ jobs:
             HOME=/home/builder PKGDEST=/work/dist \
             /usr/bin/makepkg --syncdeps --cleanbuild --nobuild --noconfirm \
             --dir /work/core/linux-rockchip-z96a
-          bash core/linux-rockchip-z96a/export-patches.sh \
-            core/linux-rockchip-z96a core/linux-rockchip-z96a/src/rockchip-linux-kernel dist
+          sudo chroot "$ALARM_ROOT" /usr/bin/runuser -u builder -- env \
+            HOME=/home/builder /usr/bin/bash /work/core/linux-rockchip-z96a/export-patches.sh \
+            /work/core/linux-rockchip-z96a /work/core/linux-rockchip-z96a/src/rockchip-linux-kernel /work/dist
 
       - name: Build pinned BSP kernel package
         run: |
