@@ -66,7 +66,7 @@ initrd="$root/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.im
 boot="$work/boot"
 mkdir -p "$boot/extlinux" "$boot/dtbs"
 install -m0644 "$bsp/Image-rockchip-z96a-bsp61" "$boot/Image"
-install -m0644 "$initrd" "$boot/initramfs.img"
+sudo install -m0644 -o "$(id -u)" -g "$(id -g)" "$initrd" "$boot/initramfs.img"
 install -m0644 "$bsp/dtbs-rockchip-z96a-bsp61/$dtb" "$boot/dtbs/$dtb"
 install -m0644 "$boot/dtbs/$dtb" "$boot/dtbs/z96a-bsp61-recovery.dtb"
 fdtput -t s "$boot/dtbs/z96a-bsp61-recovery.dtb" /npu@fde40000 status disabled
@@ -132,6 +132,7 @@ cat > "$output/layout.json" <<LAYOUT
   "board": "Sunniwell Z96A / Rockchip RK3568",
   "packaging_commit": "${GITHUB_SHA:?}",
   "kernel_release": "$release",
+  "kernel_build_run_id": "${KERNEL_BUILD_RUN_ID:?}",
   "image": "$image",
   "sector_bytes": $sector_bytes,
   "flash_start_lba": $boot_lba,
