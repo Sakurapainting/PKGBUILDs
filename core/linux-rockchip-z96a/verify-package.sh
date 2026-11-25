@@ -13,7 +13,7 @@ require_member() {
 }
 
 kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-[[ "$kernel_release" == 6.1.172-6-z96a-bsp61 ]]
+[[ "$kernel_release" == 6.1.172-7-z96a-bsp61 ]]
 
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
@@ -42,6 +42,9 @@ for symbol in \
   CONFIG_ROCKCHIP_IOMMU=y \
   CONFIG_ROCKCHIP_ANALOGIX_DP=y \
   CONFIG_DRM_PANEL_EDP=y \
+  CONFIG_DRM_PANFROST=m \
+  CONFIG_DRM_SCHED=m \
+  CONFIG_DRM_GEM_SHMEM_HELPER=m \
   CONFIG_PHY_ROCKCHIP_NANENG_EDP=y \
   CONFIG_BACKLIGHT_PWM=y \
   CONFIG_DEBUG_FS=y \
@@ -84,6 +87,16 @@ firmware=$(modinfo -F firmware "$tmpdir/$rtw88_dir/rtw88_8822c.ko")
 grep -Fx 'rtw88/rtw8822c_fw.bin' <<<"$firmware"
 grep -Fx 'rtw88/rtw8822c_wow_fw.bin' <<<"$firmware"
 
+drm_dir="usr/lib/modules/${kernel_release}/kernel/drivers/gpu/drm"
+panfrost_module="$drm_dir/panfrost/panfrost.ko"
+require_member "$panfrost_module"
+require_member "$drm_dir/scheduler/gpu-sched.ko"
+require_member "$drm_dir/drm_shmem_helper.ko"
+bsdtar -xf "$package" -C "$tmpdir" "$panfrost_module"
+vermagic=$(modinfo -F vermagic "$tmpdir/$panfrost_module")
+[[ "${vermagic%% *}" == "$kernel_release" ]]
+modinfo -F alias "$tmpdir/$panfrost_module" | grep -Fx 'of:N*T*Carm,mali-bifrost'
+
 preset=$(bsdtar -xOf "$package" etc/mkinitcpio.d/linux-rockchip-z96a.preset)
 grep -Fxq "ALL_kver=\"${kernel_release}\"" <<<"$preset"
 grep -Fxq 'default_image="/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.img"' <<<"$preset"
@@ -123,6 +136,30 @@ panel="$(dtb_node edp)/aux-bus/panel"
 [[ "$(fdtget -t x "$dtb" "$panel" backlight)" == "$(dtb_phandle backlight)" ]]
 [[ "$(fdtget -t x "$dtb" "$(dtb_node edp_in_vp1)" remote-endpoint)" == "$(dtb_phandle vp1_out_edp)" ]]
 [[ "$(fdtget -t x "$dtb" "$(dtb_node edp_out_panel)" remote-endpoint)" == "$(dtb_phandle panel_in_edp)" ]]
+
+gpu=$(dtb_node gpu)
+gpu_opp_table=$(dtb_node z96a_gpu_opp_table)
+[[ "$(fdtget -t s "$dtb" "$gpu" status)" == okay ]]
+[[ "$(fdtget -t s "$dtb" "$gpu" compatible)" == 'rockchip,rk3568-mali arm,mali-bifrost' ]]
+[[ "$(fdtget -t s "$dtb" "$gpu" interrupt-names)" == 'job mmu gpu' ]]
+[[ "$(fdtget -t u "$dtb" "$gpu" interrupts)" == '0 40 4 0 41 4 0 39 4' ]]
+[[ "$(fdtget -t s "$dtb" "$gpu" clock-names)" == 'gpu bus' ]]
+[[ "$(fdtget -t x "$dtb" "$gpu" mali-supply)" == "$(dtb_phandle vdd_gpu)" ]]
+[[ "$(fdtget -t x "$dtb" "$gpu" operating-points-v2)" == "$(dtb_phandle z96a_gpu_opp_table)" ]]
+[[ "$(fdtget -t s "$dtb" "$gpu_opp_table" compatible)" == operating-points-v2 ]]
+gpu_opps=$(fdtget -l "$dtb" "$gpu_opp_table" | sort)
+[[ "$gpu_opps" == $'opp-200000000\nopp-300000000\nopp-400000000\nopp-600000000' ]]
+for freq in 200000000 300000000 400000000 600000000; do
+  opp_node="$gpu_opp_table/opp-$freq"
+  voltage=850000
+  if [[ "$freq" == 600000000 ]]; then voltage=900000; fi
+  [[ "$(fdtget -t u "$dtb" "$opp_node" opp-hz)" == "0 $freq" ]]
+  [[ "$(fdtget -t u "$dtb" "$opp_node" opp-microvolt)" == "$voltage $voltage 1000000" ]]
+  if fdtget -t x "$dtb" "$opp_node" opp-supported-hw >/dev/null 2>&1; then
+    printf 'Unexpected GPU hardware mask in %s\n' "$opp_node" >&2
+    exit 1
+  fi
+done
 
 npu=/npu@fde40000
 npu_mmu=/iommu@fde4b000

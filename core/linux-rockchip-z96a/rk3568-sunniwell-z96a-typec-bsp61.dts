@@ -92,3 +92,41 @@
 &vop_mmu {
 	rockchip,disable-mmu-reset;
 };
+
+/* Panfrost uses the standard GPU clock and interrupt names. */
+&gpu {
+	operating-points-v2 = <&z96a_gpu_opp_table>;
+	compatible = "rockchip,rk3568-mali", "arm,mali-bifrost";
+	interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "job", "mmu", "gpu";
+	clock-names = "gpu", "bus";
+};
+
+/* Use the Z96A mainline GPU OPPs through 600 MHz. */
+/ {
+	z96a_gpu_opp_table: opp-table-gpu-z96a {
+		compatible = "operating-points-v2";
+
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <850000 850000 1000000>;
+		};
+
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <850000 850000 1000000>;
+		};
+
+		opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <850000 850000 1000000>;
+		};
+
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			opp-microvolt = <900000 900000 1000000>;
+		};
+	};
+};

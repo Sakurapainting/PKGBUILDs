@@ -45,6 +45,13 @@ for firmware in rtw8822c_fw.bin rtw8822c_wow_fw.bin; do
   test -s "/usr/lib/firmware/rtw88/$firmware"
 done
 
+gpu_alias='of:NgpuT(null)Crockchip,rk3568-maliCarm,mali-bifrost'
+modprobe -S "$kernel_release" --resolve-alias "$gpu_alias" | grep -Fx panfrost
+panfrost_deps=$(modprobe -S "$kernel_release" --show-depends "$gpu_alias")
+for path in panfrost/panfrost scheduler/gpu-sched drm_shmem_helper; do
+  grep -F "/drm/$path.ko" <<<"$panfrost_deps"
+done
+
 mkinitcpio -p "$pkgbase"
 test -s "$initrd"
 lsinitcpio "$initrd" > "$workdir/initramfs.contents"

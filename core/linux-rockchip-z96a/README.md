@@ -14,6 +14,9 @@ adds upstream Linux commit `58de1f91e033` to use indirect SDIO device-register
 access before power-on. Release `6.1.172-6` enables the built-in BOE eDP panel
 and PWM backlight on VP1. It preserves the firmware-selected VPLL mode and
 skips the VOP IOMMU reset command that timed out during the first modeset.
+Release `6.1.172-7` adds Panfrost for the Mali-G52. Its GPU node uses the
+standard clock and interrupt names and the Z96A mainline operating points
+through 600 MHz.
 
 The BSP DTS variant uses the Z96A board definitions and BSP RK3568 SoC topology.
 The board DTS was ported to the BSP SoC's labels and graph, including its USB
@@ -31,7 +34,7 @@ The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-6-z96a-bsp61/`
+- `/usr/lib/modules/6.1.172-7-z96a-bsp61/`
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
 - `/var/lib/linux-rockchip-z96a/` for the generated initramfs
 - `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata
@@ -81,7 +84,7 @@ rating and the adapter's VCCIO remain unverified.
 4. Use `Ctrl+C` at the U-Boot autoboot prompt. Verify that you can reach the
    menu or command line and manually boot the existing `linux` entry to the
    mainline login prompt. Complete this recovery test before testing BSP.
-5. After CI verifies `6.1.172-6`, confirm mkinitcpio and
+5. After CI verifies `6.1.172-7`, confirm mkinitcpio and
    `linux-firmware-realtek` are installed. Use `pacman -U` for the BSP package,
    then run `mkinitcpio -p linux-rockchip-z96a` and confirm it produces the
    staged initramfs. Compare the `/boot` file hashes before installation,
@@ -91,7 +94,7 @@ rating and the adapter's VCCIO remain unverified.
    Run the following as root after confirming `/` is that partition.
 
    ```sh
-   stage=/var/lib/linux-rockchip-z96a/bootcheck-6.1.172-6
+   stage=/var/lib/linux-rockchip-z96a/bootcheck-6.1.172-7
    src=/usr/lib/linux-rockchip-z96a-bsp61
    install -Dm644 "$src/Image-rockchip-z96a-bsp61" "$stage/Image"
    install -m644 "$src/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb" "$stage/board.dtb"
@@ -114,7 +117,7 @@ rating and the adapter's VCCIO remain unverified.
    so `0:a` selects partition 10 on eMMC device 0.
 
    ```text
-   sysboot mmc 0:a any 0x00c00000 /var/lib/linux-rockchip-z96a/bootcheck-6.1.172-6/extlinux.conf
+   sysboot mmc 0:a any 0x00c00000 /var/lib/linux-rockchip-z96a/bootcheck-6.1.172-7/extlinux.conf
    ```
 
    If the BSP stops before login, reboot via the serial recovery path or
@@ -132,7 +135,8 @@ workflow compares `/boot` manifests before install, after `pacman -U`, and
 after `mkinitcpio -p linux-rockchip-z96a`. It inspects the staged archive for
 the expected BSP release before uploading the package. It checks that the
 RTL8822CS SDIO alias resolves to the driver and its three dependency modules.
-It also checks that both firmware files are installed.
+It checks that both firmware files are installed and that the Mali GPU
+modalias resolves to Panfrost with its DRM dependencies.
 
 On 2026-11-24 the install and boot-file isolation checks passed on the
 Z96A for `6.1.172-2` with mkinitcpio `42.2-1`.
@@ -189,7 +193,12 @@ NetworkManager reconnects automatically after initial driver probe. On
 2026-11-25 the eDP DTB for `6.1.172-6` was tested with the `6.1.172-5` CI
 Image and initramfs. The 1920-by-1080 SDDM greeter was visible after a
 controlled modeset. A second boot automatically started the greeter,
-attached the Xorg framebuffer to VP1 and established Wi-Fi.
+attached the Xorg framebuffer to VP1 and established Wi-Fi. The native
+`6.1.172-6` package also booted to a visible SDDM greeter, but Niri had no
+usably accelerated renderer. A separate test kernel with the Panfrost
+configuration and GPU DTB for `6.1.172-7` reached a visible Niri Wayland
+desktop at 1920×1080 at 60.024 Hz. The Niri process opened the Mali-G52
+render node and Wi-Fi connected automatically.
 Physical HDMI output has yet to be verified. The regular extlinux default
 remains `linux`.
 

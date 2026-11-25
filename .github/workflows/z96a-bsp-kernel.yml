@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 360
     env:
-      BSP_PACKAGE: /work/dist/linux-rockchip-z96a-6.1.172-6-aarch64.pkg.tar.xz
+      BSP_PACKAGE: /work/dist/linux-rockchip-z96a-6.1.172-7-aarch64.pkg.tar.xz
     steps:
       - name: Check out BSP package and build support
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
           /usr/bin/makepkg --syncdeps --cleanbuild --clean --noconfirm
           --dir /work/core/linux-rockchip-z96a
 
-      - name: Verify package paths, config, Wi-Fi modules and BSP DTB
+      - name: Verify package paths, config, driver modules and BSP DTB
         run: >-
           sudo chroot "$ALARM_ROOT" /usr/bin/bash
           /work/core/linux-rockchip-z96a/verify-package.sh
