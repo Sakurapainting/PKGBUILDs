@@ -1,6 +1,6 @@
 # Sunniwell Z96A Arch Linux ARM 烧录镜像
 
-镜像用于 RK3568 Z96A 的 eMMC。它包含 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，该启动项带 `movablecore=256M`，用于规避 RKNPU 在这块板上使用高地址内存时出现的推理超时。菜单另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。首启在控制台设置 root 密码，SSH 默认关闭。`layout.json` 中的 `profile` 标记镜像类型：`minimal` 不预装桌面，`niri` 预装 SDDM、Niri、Panfrost（Mesa）、Foot 和 Fuzzel。两种镜像使用相同的 BOOT/ROOT 位置和烧录方法。
+镜像用于 RK3568 Z96A 的 eMMC。它包含 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，该启动项带 `movablecore=256M`，用于规避 RKNPU 在这块板上使用高地址内存时出现的推理超时。菜单另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。预设普通用户 `alarm`，初始密码为 `alarm`；root 账号首启在控制台设置密码。SSH 默认关闭。固定默认密码不安全，仅适合可信环境中的首次登录；首次登录后请立即运行 `passwd` 改密，不要让该密码长期暴露在联网设备上。`layout.json` 中的 `profile` 标记镜像类型：`minimal` 不预装桌面，`niri` 预装 SDDM、Niri、Panfrost（Mesa）、Foot 和 Fuzzel。两种镜像使用相同的 BOOT/ROOT 位置和烧录方法。
 
 ## 适用分区布局
 
@@ -15,11 +15,11 @@
 
 ## Rockchip rkdeveloptool
 
-先校验下载文件并解压。目录内只有一个 `.img.zst` 文件。
+先校验下载文件并解压。目录内只有一个 `.img.xz` 文件。
 
 ```sh
 sha256sum -c SHA256SUMS
-zstd -d -- *.img.zst
+xz -dk -- *.img.xz
 sha256sum -c RAW-SHA256SUMS
 ```
 
@@ -39,18 +39,11 @@ sudo rkdeveloptool wl 0x2E800 ./*.img
 sudo rkdeveloptool rd
 ```
 
-首次启动可连接内屏键盘或 UART（Linux 控制台 `ttyS0`，1500000 8N1），按提示设置 root 密码。如果固件提示 `wait power key press down`，短按板子电源键。首次使用 pacman 前执行 `pacman-key --init` 和 `pacman-key --populate archlinuxarm`。
+首次启动时，按 UART（Linux 控制台 `ttyS0`，1500000 8N1）提示设置 root 密码；普通用户使用预设的 `alarm` / `alarm` 登录。如果固件提示 `wait power key press down`，短按板子电源键。首次使用 pacman 前执行 `pacman-key --init` 和 `pacman-key --populate archlinuxarm`。SSH 服务默认关闭。
 
 ## Niri 桌面版首次登录
 
-桌面版自动启动 SDDM，不预设桌面账号密码，也不包含个人 Wi-Fi 配置。完成 root 首启设置后，在串口或按 `Ctrl+Alt+F3` 打开的文本控制台以 root 登录，创建桌面用户并设置密码：
-
-```sh
-useradd -m -g users -s /bin/bash alarm
-passwd alarm
-```
-
-在内屏切回 SDDM（若使用了 `Ctrl+Alt+F3`，按 `Ctrl+Alt+F2` 返回登录界面），选择 **Niri** 会话并用 `alarm` 登录。`Super+Enter` 打开 Foot，`Super+D` 打开 Fuzzel。NPU 禁用的恢复启动项仍进入文本模式，不会启动 SDDM。
+桌面版自动启动 SDDM，用户列表中预设 `alarm` 账号，初始密码为 `alarm`。在内屏选择 `alarm`，输入初始密码并选择 **Niri** 会话登录。首次进入系统后立即在终端运行 `passwd` 修改密码。镜像不包含个人 Wi-Fi 配置。`Super+Enter` 打开 Foot，`Super+D` 打开 Fuzzel。NPU 禁用的恢复启动项仍进入文本模式，不会启动 SDDM。
 
 ## 首启工具和 RKNN 离线自检
 

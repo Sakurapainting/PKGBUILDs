@@ -68,6 +68,8 @@ mkinitcpio -p linux-rockchip-z96a
 pacman -Q > /usr/share/z96a-image-packages.txt
 pacman -Scc --noconfirm
 if id alarm >/dev/null 2>&1; then userdel -r alarm; fi
+useradd -m -g users -s /bin/bash alarm
+printf 'alarm:alarm\n' | chpasswd
 passwd -l root
 CHROOT
 
@@ -189,7 +191,10 @@ for path in /usr/bin/z96a-rknn-selftest /usr/lib/librknnrt.so /usr/lib/z96a-rknn
   debugfs -R "dump $path $work/verified-rknn-file" "$work/ROOT.img"
   cmp "$root$path" "$work/verified-rknn-file"
 done
-debugfs -R 'cat /etc/shadow' "$work/ROOT.img" 2>/dev/null | awk -F: '$1=="root" && $2 ~ /^!/ { locked=1 } $1=="alarm" { exit 1 } END { if (!locked) exit 1 }'
+debugfs -R 'cat /etc/passwd' "$work/ROOT.img" 2>/dev/null |
+  awk -F: '$1=="alarm" && $6=="/home/alarm" && $7=="/bin/bash" { found++ } END { if (found != 1) exit 1 }'
+debugfs -R 'cat /etc/shadow' "$work/ROOT.img" 2>/dev/null |
+  awk -F: '$1=="root" && $2 ~ /^!/ { locked=1 } $1=="alarm" && $2 != "" && $2 !~ /^[!*]/ { configured=1 } END { if (!locked || !configured) exit 1 }'
 debugfs -R 'cat /etc/machine-id' "$work/ROOT.img" 2>/dev/null | grep -Fx uninitialized
 if [[ "$profile" == niri ]]; then
   debugfs -R "dump $niri_config $work/verified-niri.kdl" "$work/ROOT.img"
@@ -205,11 +210,11 @@ fi
 [[ "$(fdtget -t s "$boot/dtbs/$dtb" /npu@fde40000 status)" == okay ]]
 [[ "$(fdtget -t s "$boot/dtbs/z96a-bsp61-recovery.dtb" /npu@fde40000 status)" == disabled ]]
 
-cat "$work/BOOT.img" "$work/ROOT.img" | zstd -T2 -6 -q -o "$output/$image.zst"
-zstd -t "$output/$image.zst"
+cat "$work/BOOT.img" "$work/ROOT.img" | xz -T2 -6 -c > "$output/$image.xz"
+xz -t "$output/$image.xz"
 raw_sha=$(cat "$work/BOOT.img" "$work/ROOT.img" | sha256sum | cut -d' ' -f1)
 raw_bytes=$(((boot_sectors + root_sectors) * sector_bytes))
-actual_sha=$(zstd -dc "$output/$image.zst" | sha256sum | cut -d' ' -f1)
+actual_sha=$(xz -dc "$output/$image.xz" | sha256sum | cut -d' ' -f1)
 [[ "$actual_sha" == "$raw_sha" ]]
 printf '%s  %s\n' "$raw_sha" "$image" > "$output/RAW-SHA256SUMS"
 cp "$board_files/flash-image.zh-CN.md" "$output/README.zh-CN.md"
@@ -231,4 +236,4 @@ cat > "$output/layout.json" <<LAYOUT
   "root": {"partlabel": "ROOT", "start_lba": $root_lba, "image_sectors": $root_sectors}
 }
 LAYOUT
-(cd "$output" && sha256sum "$image.zst" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md check-flash-layout.py > SHA256SUMS)
+(cd "$output" && sha256sum "$image.xz" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md check-flash-layout.py > SHA256SUMS)
