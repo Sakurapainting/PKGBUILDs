@@ -74,10 +74,6 @@ fi
 mkinitcpio -p linux-rockchip-z96a
 pacman -Q > /usr/share/z96a-image-packages.txt
 pacman -Scc --noconfirm
-if id alarm >/dev/null 2>&1; then userdel -r alarm; fi
-useradd -m -g users -s /bin/bash alarm
-printf 'alarm:alarm\n' | chpasswd
-passwd -l root
 CHROOT
 
 sudo install -Dm0644 "$rknn_files/librknnrt.so" "$root/usr/lib/librknnrt.so"
@@ -116,6 +112,20 @@ CHROOT
   sudo systemctl --root="$root" enable sddm.service
   sudo systemctl --root="$root" set-default graphical.target
 fi
+
+# useradd copies /etc/skel only when creating the home directory. Install the
+# image's desktop defaults above so the pre-created account receives them too.
+sudo chroot "$root" /bin/bash -se -- "$profile" <<'CHROOT'
+if id alarm >/dev/null 2>&1; then userdel -r alarm; fi
+useradd -m -g users -s /bin/bash alarm
+printf 'alarm:alarm\n' | chpasswd
+passwd -l root
+if [[ "$1" == niri ]]; then
+  config=.config/niri/config.kdl
+  cmp "/etc/skel/$config" "/home/alarm/$config"
+  [[ "$(stat -c '%u:%g' "/home/alarm/$config")" == "$(id -u alarm):$(id -g alarm)" ]]
+fi
+CHROOT
 
 sudo systemctl --root="$root" disable sshd.service
 sudo systemctl --root="$root" enable NetworkManager.service serial-getty@ttyS0.service
@@ -189,6 +199,9 @@ e2fsck -fn "$work/ROOT.img"
 mkdir "$work/verified-boot"
 mcopy -i "$work/BOOT.img" -s ::/ "$work/verified-boot/"
 diff -r "$boot" "$work/verified-boot"
+for boot_dtb in "$dtb" z96a-bsp61-recovery.dtb; do
+  bash "$board_files/verify-edp-planes.sh" "$work/verified-boot/dtbs/$boot_dtb"
+done
 for path in /usr/lib/modules/"$release"/modules.dep.bin /etc/fstab /usr/share/z96a-image-packages.txt \
             /usr/bin/fastfetch /usr/bin/iw /usr/bin/fsck.fat /usr/bin/lsusb; do
   debugfs -R "stat $path" "$work/ROOT.img" 2>/dev/null | grep '^Inode:'
@@ -204,8 +217,9 @@ debugfs -R 'cat /etc/shadow' "$work/ROOT.img" 2>/dev/null |
   awk -F: '$1=="root" && $2 ~ /^!/ { locked=1 } $1=="alarm" && $2 != "" && $2 !~ /^[!*]/ { configured=1 } END { if (!locked || !configured) exit 1 }'
 debugfs -R 'cat /etc/machine-id' "$work/ROOT.img" 2>/dev/null | grep -Fx uninitialized
 if [[ "$profile" == niri ]]; then
-  debugfs -R "dump $niri_config $work/verified-niri.kdl" "$work/ROOT.img"
-  cmp "$board_files/niri-image.kdl" "$work/verified-niri.kdl"
+  for path in "$niri_config" /home/alarm/.config/niri/config.kdl; do
+    debugfs -R "cat $path" "$work/ROOT.img" | cmp "$board_files/niri-image.kdl" -
+  done
   debugfs -R 'stat /etc/systemd/system/display-manager.service' "$work/ROOT.img" 2>/dev/null |
     grep -Fx 'Fast link dest: "/usr/lib/systemd/system/sddm.service"'
   debugfs -R 'stat /etc/systemd/system/default.target' "$work/ROOT.img" 2>/dev/null |

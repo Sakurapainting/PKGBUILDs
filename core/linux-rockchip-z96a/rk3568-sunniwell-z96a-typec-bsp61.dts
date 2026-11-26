@@ -11,6 +11,21 @@
 	/delete-property/ assigned-clock-rates;
 };
 
+/*
+ * Match the working factory handoff even if U-Boot cannot load a resource
+ * partition (e.g. the full LBA0 image). In that case the BSP's defaults
+ * otherwise put Smart1 on eDP's VP1 and the Niri session can scan out black.
+ */
+&vp0 {
+	rockchip,plane-mask = <0x2a>; /* Cluster1, Esmart1, Smart1 */
+	rockchip,primary-plane = <5>; /* Smart1 */
+};
+
+&vp1 {
+	rockchip,plane-mask = <0x15>; /* Cluster0, Esmart0, Smart0 */
+	rockchip,primary-plane = <4>; /* Smart0 */
+};
+
 /* Keep the independent NPU bus voltage scaler off as in the hardware trial. */
 &bus_npu {
 	status = "disabled";

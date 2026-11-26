@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - z96a-niri
+      - z96a-bsp-niri-image
     tags:
       - z96a-bsp-v*
     paths:
@@ -118,7 +119,7 @@ jobs:
     env:
       ALARM_MIRROR: https://ca.us.mirror.archlinuxarm.org
       KERNEL_BUILD_RUN_ID: ${{ inputs.kernel_run_id || github.run_id }}
-      IMAGE_PROFILE: ${{ inputs.image_profile || 'minimal' }}
+      IMAGE_PROFILE: ${{ inputs.image_profile || (github.ref == 'refs/heads/z96a-bsp-niri-image' && 'niri') || 'minimal' }}
     steps:
       - name: Check out image build and documentation
         uses: actions/checkout@v4
@@ -177,7 +178,7 @@ jobs:
       - name: Upload RKDevTool image and checksums
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.image_profile == 'niri' && 'z96a-rockchip-flash-image-niri' || 'z96a-rockchip-flash-image' }}
+          name: ${{ env.IMAGE_PROFILE == 'niri' && 'z96a-rockchip-flash-image-niri' || 'z96a-rockchip-flash-image' }}
           path: dist/flash-image/
           compression-level: 0
           if-no-files-found: error
@@ -186,7 +187,7 @@ jobs:
       - name: Upload complete LBA0 eMMC image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.image_profile == 'niri' && 'z96a-rockchip-flash-image-niri-lba0' || 'z96a-rockchip-flash-image-lba0' }}
+          name: ${{ env.IMAGE_PROFILE == 'niri' && 'z96a-rockchip-flash-image-niri-lba0' || 'z96a-rockchip-flash-image-lba0' }}
           path: dist/flash-image-lba0/
           compression-level: 0
           if-no-files-found: error

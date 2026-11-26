@@ -127,6 +127,7 @@ if grep -Fxq assigned-clock-rates <<<"$vop_properties"; then
 fi
 [[ "$(fdtget -t x "$dtb" "$vop" iommus)" == "$(dtb_phandle vop_mmu)" ]]
 fdtget "$dtb" "$(dtb_node vop_mmu)" rockchip,disable-mmu-reset >/dev/null
+bash "$(dirname -- "${BASH_SOURCE[0]}")/verify-edp-planes.sh" "$dtb"
 
 for symbol in edp edp_phy edp_in_vp1 pwm9; do
   [[ "$(fdtget -t s "$dtb" "$(dtb_node "$symbol")" status)" == okay ]]

@@ -12,13 +12,19 @@ through 600 MHz and the separate bus voltage scaler disabled. The RK3568J
 800 MHz overdrive OPP stays disabled. This configuration matches the DTB
 used for the 2026-11-25 RKNN hardware trial.
 
+Release `6.1.172-9` explicitly assigns Smart0 to the eDP video port, matching
+the working factory U-Boot handoff without depending on a factory `resource`
+partition. The package and both flash images check this plane assignment in
+CI. The desktop image supplies Foot on both Super+Enter and Super+T for the
+pre-created `alarm` account.
+
 ## Isolation
 
 The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-8-z96a-bsp61/`
+- `/usr/lib/modules/6.1.172-9-z96a-bsp61/`
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
 - `/var/lib/linux-rockchip-z96a/` for the generated initramfs
 - `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata
