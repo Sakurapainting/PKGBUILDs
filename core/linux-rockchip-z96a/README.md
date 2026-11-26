@@ -150,10 +150,22 @@ clock rates.
   commit, including the rtw88 import.
 - `z96a-rockchip-flash-image` contains the raw BOOT/ROOT image, compressed with
   Zstandard, with layout, hashes and the [Rockchip flashing guide](flash-image.zh-CN.md).
-- `z96a-rockchip-flash-image-niri` is the same flash layout with SDDM and Niri
-  preinstalled. Select `image_profile=niri` when dispatching the BSP workflow.
-  To rebuild only the image, also set `kernel_run_id` to a run whose `build`
-  job passed and whose `z96a-rockchip-bsp61` artifact has not expired.
+- `z96a-rockchip-flash-image-niri` is the partition-only BOOT/ROOT image with
+  SDDM and Niri preinstalled. It preserves GPT, vendor boot firmware and other
+  eMMC partitions.
+- `z96a-rockchip-flash-image-lba0` and
+  `z96a-rockchip-flash-image-niri-lba0` are additional whole-eMMC raw images
+  that start at LBA0, contain primary/backup GPT and the sanitized RK3568 boot
+  firmware prefix, and are intended for the RKDevTool `system` slot at address
+  `0x00000000` (use the Niri variant for a desktop image). They erase all data
+  on the target eMMC. The artifact build performs an offline sparse virtual-flash
+  write and verifies GPT CRCs, firmware bytes, zeroed OEM partitions and BOOT/ROOT
+  offsets; this is not a physical-board flash/cold-boot certification. See
+  [the LBA0 flashing and destructive-operation guide](flash-image-lba0.zh-CN.md).
+  The firmware-prefix README records its provenance and exact content exclusions.
+- Select `image_profile=niri` when dispatching the BSP workflow. To rebuild only
+  the images, also set `kernel_run_id` to a run whose `build` job passed and
+  whose `z96a-rockchip-bsp61` artifact has not expired.
 
 ## Device Acceptance
 

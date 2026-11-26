@@ -163,21 +163,31 @@ jobs:
       - name: Install host filesystem tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y device-tree-compiler dosfstools e2fsprogs gcc libc6-dev libarchive-tools mtools xz-utils
+          sudo apt-get install -y device-tree-compiler dosfstools e2fsprogs gcc libc6-dev libarchive-tools mtools xz-utils util-linux
 
       - name: Bootstrap a clean Arch Linux ARM filesystem
         run: bash .github/scripts/bootstrap-alarm.sh
 
-      - name: Build and validate the RKDevTool BOOT and ROOT image
+      - name: Build and validate BOOT/ROOT and full LBA0 images
         run: |
+          mkdir -p dist/flash-image dist/flash-image-lba0
           bash .github/scripts/build-z96a-image.sh "$ALARM_ROOT" \
-            dist/linux-rockchip-z96a-*.pkg.tar.xz dist/flash-image "$IMAGE_PROFILE"
+            dist/linux-rockchip-z96a-*.pkg.tar.xz dist/flash-image "$IMAGE_PROFILE" dist/flash-image-lba0
 
       - name: Upload RKDevTool image and checksums
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.image_profile == 'niri' && 'z96a-rockchip-flash-image-niri' || 'z96a-rockchip-flash-image' }}
           path: dist/flash-image/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload complete LBA0 eMMC image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.image_profile == 'niri' && 'z96a-rockchip-flash-image-niri-lba0' || 'z96a-rockchip-flash-image-lba0' }}
+          path: dist/flash-image-lba0/
           compression-level: 0
           if-no-files-found: error
           retention-days: 30

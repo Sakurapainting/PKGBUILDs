@@ -6,6 +6,10 @@ root=$(realpath "${1:?usage: build-z96a-image.sh ALARM_ROOT BSP_PACKAGE OUTPUT_D
 package=$(realpath "${2:?missing BSP package}")
 output=$(realpath "${3:?missing output directory}")
 profile=${4:-minimal}
+lba0_output=${5:-}
+if [[ -n "$lba0_output" ]]; then
+  lba0_output=$(realpath "$lba0_output")
+fi
 case "$profile" in
   minimal) image_suffix= ;;
   niri) image_suffix=-niri ;;
@@ -15,6 +19,9 @@ esac
 [[ "$package" == "$GITHUB_WORKSPACE"/dist/linux-rockchip-z96a-*.pkg.tar.xz ]]
 mountpoint -q "$root/work"
 mkdir -p "$output"
+if [[ -n "$lba0_output" ]]; then
+  [[ -d "$lba0_output" ]]
+fi
 work=$(mktemp -d "$RUNNER_TEMP/z96a-image.XXXXXXXX")
 trap 'rm -rf "$work"' EXIT
 
@@ -237,3 +244,71 @@ cat > "$output/layout.json" <<LAYOUT
 }
 LAYOUT
 (cd "$output" && sha256sum "$image.xz" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md check-flash-layout.py > SHA256SUMS)
+
+if [[ -n "$lba0_output" ]]; then
+  disk_sectors=61071360
+  disk_bytes=$((disk_sectors * sector_bytes))
+  prefix_xz="$board_files/boot-firmware/z96a-preboot-190464lba.bin.xz"
+  prefix_raw="$work/z96a-preboot-190464lba.bin"
+  full_raw="$work/z96a-archarm-${release}${image_suffix}-lba0.img"
+  full_image="$(basename "$full_raw")"
+  full_xz="$lba0_output/$full_image.xz"
+
+  printf '%s  %s\n' e9e5f45f6cd503086c1219b8e1a1f658e4fe32b248a2131cb6d78015c3c2f47e "$prefix_xz" |
+    sha256sum --check --strict
+  xz -t "$prefix_xz"
+  xz -dc "$prefix_xz" > "$prefix_raw"
+  [[ "$(stat -c %s "$prefix_raw")" -eq $((190464 * sector_bytes)) ]]
+  printf '%s  %s\n' 2168a3cdd9bdf46953ad7d965d465afeb4b75b31a99b8031974c7b0035c0dbbc "$prefix_raw" |
+    sha256sum --check --strict
+
+  # A sparse whole-eMMC image: only the sanitized Rockchip boot firmware, the
+  # generated GPT and the tested BOOT/ROOT payloads occupy nonzero sectors.
+  truncate -s "$disk_bytes" "$full_raw"
+  dd if="$prefix_raw" of="$full_raw" bs=4M conv=sparse,notrunc status=none
+  dd if="$work/BOOT.img" of="$full_raw" bs="$sector_bytes" seek="$boot_lba" conv=sparse,notrunc status=none
+  dd if="$work/ROOT.img" of="$full_raw" bs="$sector_bytes" seek="$root_lba" conv=sparse,notrunc status=none
+  python3 "$board_files/write-z96a-gpt.py" "$full_raw" --sectors "$disk_sectors"
+
+  # Validate GPT geometry/CRCs independently with util-linux, then produce the
+  # downloadable compressed image and simulate a raw LBA0 write to a sparse disk.
+  sfdisk --verify "$full_raw"
+  raw_sha=$(sha256sum "$full_raw" | cut -d' ' -f1)
+  xz -T2 -6 -c "$full_raw" > "$full_xz"
+  # Reuse the sparse build file as the virtual flash destination so CI does not
+  # need a second full-disk copy alongside both compressed artifacts.
+  truncate -s 0 "$full_raw"
+  truncate -s "$disk_bytes" "$full_raw"
+  xz -dc "$full_xz" |
+    tee >(sha256sum | cut -d' ' -f1 > "$work/virtual-flash.sha256") |
+    dd of="$full_raw" bs=4M conv=sparse status=none
+  [[ "$(cat "$work/virtual-flash.sha256")" == "$raw_sha" ]]
+  python3 "$board_files/verify-z96a-lba0-image.py" "$full_raw" \
+    --prefix "$prefix_raw" --boot "$work/BOOT.img" --root "$work/ROOT.img"
+  sfdisk --verify "$full_raw"
+
+  printf '%s  %s\n' "$raw_sha" "$full_image" > "$lba0_output/RAW-SHA256SUMS"
+  cp "$board_files/flash-image-lba0.zh-CN.md" "$lba0_output/README.zh-CN.md"
+  cp "$board_files/verify-z96a-lba0-image.py" "$lba0_output/verify-z96a-lba0-image.py"
+  cp "$boot/extlinux/extlinux.conf" "$lba0_output/extlinux.conf"
+  cp "$root/usr/share/z96a-image-packages.txt" "$lba0_output/PACKAGES"
+  cat > "$lba0_output/layout.json" <<LAYOUT
+{
+  "board": "Sunniwell Z96A / Rockchip RK3568",
+  "packaging_commit": "${GITHUB_SHA:?}",
+  "kernel_release": "$release",
+  "profile": "$profile",
+  "kernel_build_run_id": "${KERNEL_BUILD_RUN_ID:?}",
+  "image": "$full_image",
+  "sector_bytes": $sector_bytes,
+  "disk_sectors": $disk_sectors,
+  "flash_start_lba": 0,
+  "raw_bytes": $disk_bytes,
+  "gpt": {"primary_header_lba": 1, "backup_header_lba": $((disk_sectors - 1)), "partition_count": 10},
+  "boot": {"partlabel": "BOOT", "start_lba": $boot_lba, "sectors": $boot_sectors},
+  "root": {"partlabel": "ROOT", "start_lba": $root_lba, "image_sectors": $root_sectors},
+  "verification": "xz decompression streamed to a sparse virtual flash disk; SHA-256, primary/backup GPT, firmware prefix, zeroed OEM regions and BOOT/ROOT offsets verified"
+}
+LAYOUT
+  (cd "$lba0_output" && sha256sum "$full_image.xz" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md verify-z96a-lba0-image.py > SHA256SUMS)
+fi
