@@ -279,10 +279,9 @@ if [[ -n "$lba0_output" ]]; then
   # need a second full-disk copy alongside both compressed artifacts.
   truncate -s 0 "$full_raw"
   truncate -s "$disk_bytes" "$full_raw"
-  xz -dc "$full_xz" |
-    tee >(sha256sum | cut -d' ' -f1 > "$work/virtual-flash.sha256") |
-    dd of="$full_raw" bs=4M conv=sparse status=none
-  [[ "$(cat "$work/virtual-flash.sha256")" == "$raw_sha" ]]
+  xz -dc "$full_xz" | dd of="$full_raw" bs=4M conv=sparse status=none
+  virtual_sha=$(sha256sum "$full_raw" | cut -d' ' -f1)
+  [[ "$virtual_sha" == "$raw_sha" ]]
   python3 "$board_files/verify-z96a-lba0-image.py" "$full_raw" \
     --prefix "$prefix_raw" --boot "$work/BOOT.img" --root "$work/ROOT.img"
   sfdisk --verify "$full_raw"
