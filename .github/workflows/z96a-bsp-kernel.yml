@@ -17,6 +17,14 @@ on:
         description: Reuse a verified BSP package from this workflow run and rebuild the image
         required: false
         type: string
+      image_profile:
+        description: Minimal console image or the SDDM and Niri desktop image
+        required: true
+        default: minimal
+        type: choice
+        options:
+          - minimal
+          - niri
 
 permissions:
   contents: read
@@ -110,6 +118,7 @@ jobs:
     env:
       ALARM_MIRROR: https://ca.us.mirror.archlinuxarm.org
       KERNEL_BUILD_RUN_ID: ${{ inputs.kernel_run_id || github.run_id }}
+      IMAGE_PROFILE: ${{ inputs.image_profile || 'minimal' }}
     steps:
       - name: Check out image build and documentation
         uses: actions/checkout@v4
@@ -162,12 +171,12 @@ jobs:
       - name: Build and validate the RKDevTool BOOT and ROOT image
         run: |
           bash .github/scripts/build-z96a-image.sh "$ALARM_ROOT" \
-            dist/linux-rockchip-z96a-*.pkg.tar.xz dist/flash-image
+            dist/linux-rockchip-z96a-*.pkg.tar.xz dist/flash-image "$IMAGE_PROFILE"
 
       - name: Upload RKDevTool image and checksums
         uses: actions/upload-artifact@v4
         with:
-          name: z96a-rockchip-flash-image
+          name: ${{ inputs.image_profile == 'niri' && 'z96a-rockchip-flash-image-niri' || 'z96a-rockchip-flash-image' }}
           path: dist/flash-image/
           compression-level: 0
           if-no-files-found: error

@@ -2,9 +2,15 @@
 set -euo pipefail
 
 # Run on a native AArch64 CI runner with a clean bootstrap-alarm.sh rootfs.
-root=$(realpath "${1:?usage: build-z96a-image.sh ALARM_ROOT BSP_PACKAGE OUTPUT_DIR}")
+root=$(realpath "${1:?usage: build-z96a-image.sh ALARM_ROOT BSP_PACKAGE OUTPUT_DIR [minimal|niri]}")
 package=$(realpath "${2:?missing BSP package}")
 output=$(realpath "${3:?missing output directory}")
+profile=${4:-minimal}
+case "$profile" in
+  minimal) image_suffix= ;;
+  niri) image_suffix=-niri ;;
+  *) printf 'Unknown Z96A image profile: %s\n' "$profile" >&2; exit 2 ;;
+esac
 [[ "$root" == "${RUNNER_TEMP:?}/alarm-root" && -d "$root/work" ]]
 [[ "$package" == "$GITHUB_WORKSPACE"/dist/linux-rockchip-z96a-*.pkg.tar.xz ]]
 mountpoint -q "$root/work"
@@ -18,7 +24,7 @@ root_lba=714752
 root_sectors=7340032
 sector_bytes=512
 release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease)
-image="z96a-archarm-${release}-boot-root.img"
+image="z96a-archarm-${release}${image_suffix}-boot-root.img"
 
 board_files="$GITHUB_WORKSPACE/core/linux-rockchip-z96a"
 selftest="$board_files/rknn-selftest"
@@ -45,12 +51,15 @@ printf '%s  %s\n' 782e083e826d9b92cdc3f0ba914ea1c86ea35f55c69e8709bcfc5caf09e838
 cc -std=c11 -O2 -Wall -Wextra -I "$rknn_files" "$selftest/conv-check.c" \
   -L "$rknn_files" -Wl,-rpath-link,"$rknn_files" -lrknnrt -lm -o "$rknn_files/conv-check"
 
-sudo chroot "$root" /bin/bash -s -- "/work/dist/${package##*/}" <<'CHROOT'
+sudo chroot "$root" /bin/bash -s -- "/work/dist/${package##*/}" "$profile" <<'CHROOT'
 set -euo pipefail
 pacman-key --init
 pacman-key --populate archlinuxarm
-pacman -Syu --noconfirm --needed mkinitcpio linux-firmware-realtek networkmanager sudo \
-  fastfetch iw dosfstools usbutils libstdc++
+packages=(mkinitcpio linux-firmware-realtek networkmanager sudo fastfetch iw dosfstools usbutils libstdc++)
+if [[ "$2" == niri ]]; then
+  packages+=(sddm niri mesa xorg-server xwayland-satellite foot fuzzel xdg-desktop-portal-gtk)
+fi
+pacman -Syu --noconfirm --needed "${packages[@]}"
 pacman -U --noconfirm "$1"
 if pacman -Q linux-aarch64 >/dev/null 2>&1; then
   pacman -R --noconfirm linux-aarch64
@@ -82,6 +91,22 @@ if usage=$(/usr/lib/z96a-rknn/conv-check 2>&1); then
 fi
 [[ "$usage" == 'Usage: /usr/lib/z96a-rknn/conv-check model.rknn duration_seconds' ]]
 CHROOT
+
+if [[ "$profile" == niri ]]; then
+  niri_config=/etc/skel/.config/niri/config.kdl
+  sudo install -Dm0644 "$board_files/niri-image.kdl" "$root$niri_config"
+  sudo chroot "$root" /bin/bash -se -- "$niri_config" <<'CHROOT'
+for tool in sddm niri-session niri Xorg Xwayland xwayland-satellite foot fuzzel; do
+  command -v "$tool"
+done
+niri --version
+niri validate --config "$1"
+grep -Fx 'Exec=niri-session' /usr/share/wayland-sessions/niri.desktop
+test -e /usr/lib/dri/panfrost_dri.so
+CHROOT
+  sudo systemctl --root="$root" enable sddm.service
+  sudo systemctl --root="$root" set-default graphical.target
+fi
 
 sudo systemctl --root="$root" disable sshd.service
 sudo systemctl --root="$root" enable NetworkManager.service serial-getty@ttyS0.service
@@ -166,6 +191,17 @@ for path in /usr/bin/z96a-rknn-selftest /usr/lib/librknnrt.so /usr/lib/z96a-rknn
 done
 debugfs -R 'cat /etc/shadow' "$work/ROOT.img" 2>/dev/null | awk -F: '$1=="root" && $2 ~ /^!/ { locked=1 } $1=="alarm" { exit 1 } END { if (!locked) exit 1 }'
 debugfs -R 'cat /etc/machine-id' "$work/ROOT.img" 2>/dev/null | grep -Fx uninitialized
+if [[ "$profile" == niri ]]; then
+  debugfs -R "dump $niri_config $work/verified-niri.kdl" "$work/ROOT.img"
+  cmp "$board_files/niri-image.kdl" "$work/verified-niri.kdl"
+  debugfs -R 'stat /etc/systemd/system/display-manager.service' "$work/ROOT.img" 2>/dev/null |
+    grep -Fx 'Fast link dest: "/usr/lib/systemd/system/sddm.service"'
+  debugfs -R 'stat /etc/systemd/system/default.target' "$work/ROOT.img" 2>/dev/null |
+    grep -Fx 'Fast link dest: "/usr/lib/systemd/system/graphical.target"'
+  for path in /usr/bin/sddm /usr/bin/niri /usr/share/wayland-sessions/niri.desktop /usr/lib/dri/panfrost_dri.so; do
+    debugfs -R "stat $path" "$work/ROOT.img" 2>/dev/null | grep '^Inode:'
+  done
+fi
 [[ "$(fdtget -t s "$boot/dtbs/$dtb" /npu@fde40000 status)" == okay ]]
 [[ "$(fdtget -t s "$boot/dtbs/z96a-bsp61-recovery.dtb" /npu@fde40000 status)" == disabled ]]
 
@@ -185,6 +221,7 @@ cat > "$output/layout.json" <<LAYOUT
   "board": "Sunniwell Z96A / Rockchip RK3568",
   "packaging_commit": "${GITHUB_SHA:?}",
   "kernel_release": "$release",
+  "profile": "$profile",
   "kernel_build_run_id": "${KERNEL_BUILD_RUN_ID:?}",
   "image": "$image",
   "sector_bytes": $sector_bytes,

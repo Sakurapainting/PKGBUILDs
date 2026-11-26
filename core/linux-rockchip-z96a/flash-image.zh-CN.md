@@ -1,6 +1,6 @@
 # Sunniwell Z96A Arch Linux ARM 烧录镜像
 
-镜像用于 RK3568 Z96A 的 eMMC。它包含 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，该启动项带 `movablecore=256M`，用于规避 RKNPU 在这块板上使用高地址内存时出现的推理超时。菜单另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。首启在控制台设置 root 密码，SSH 默认关闭。桌面环境可单独安装。
+镜像用于 RK3568 Z96A 的 eMMC。它包含 Arch Linux ARM 基础系统、Realtek 固件、NetworkManager 和 Actions 构建的 BSP 内核。开机默认进入 `linux-bsp61`，该启动项带 `movablecore=256M`，用于规避 RKNPU 在这块板上使用高地址内存时出现的推理超时。菜单另有禁用 NPU 的 BSP 救援项。系统提供内屏及串口登录。首启在控制台设置 root 密码，SSH 默认关闭。`layout.json` 中的 `profile` 标记镜像类型：`minimal` 不预装桌面，`niri` 预装 SDDM、Niri、Panfrost（Mesa）、Foot 和 Fuzzel。两种镜像使用相同的 BOOT/ROOT 位置和烧录方法。
 
 ## 适用分区布局
 
@@ -40,6 +40,17 @@ sudo rkdeveloptool rd
 ```
 
 首次启动可连接内屏键盘或 UART（Linux 控制台 `ttyS0`，1500000 8N1），按提示设置 root 密码。如果固件提示 `wait power key press down`，短按板子电源键。首次使用 pacman 前执行 `pacman-key --init` 和 `pacman-key --populate archlinuxarm`。
+
+## Niri 桌面版首次登录
+
+桌面版自动启动 SDDM，不预设桌面账号密码，也不包含个人 Wi-Fi 配置。完成 root 首启设置后，在串口或按 `Ctrl+Alt+F3` 打开的文本控制台以 root 登录，创建桌面用户并设置密码：
+
+```sh
+useradd -m -g users -s /bin/bash alarm
+passwd alarm
+```
+
+在内屏切回 SDDM（若使用了 `Ctrl+Alt+F3`，按 `Ctrl+Alt+F2` 返回登录界面），选择 **Niri** 会话并用 `alarm` 登录。`Super+Enter` 打开 Foot，`Super+D` 打开 Fuzzel。NPU 禁用的恢复启动项仍进入文本模式，不会启动 SDDM。
 
 ## 首启工具和 RKNN 离线自检
 

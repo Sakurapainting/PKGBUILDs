@@ -150,6 +150,10 @@ clock rates.
   commit, including the rtw88 import.
 - `z96a-rockchip-flash-image` contains the raw BOOT/ROOT image, compressed with
   Zstandard, with layout, hashes and the [Rockchip flashing guide](flash-image.zh-CN.md).
+- `z96a-rockchip-flash-image-niri` is the same flash layout with SDDM and Niri
+  preinstalled. Select `image_profile=niri` when dispatching the BSP workflow.
+  To rebuild only the image, also set `kernel_run_id` to a run whose `build`
+  job passed and whose `z96a-rockchip-bsp61` artifact has not expired.
 
 ## Device Acceptance
 
