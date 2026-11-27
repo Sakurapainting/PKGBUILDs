@@ -1,0 +1,8 @@
+# SinoWealth SH61F83Q (6080:8060) on the Z96A Type-C board.
+evdev:input:b0003v6080p8060*
+ KEYBOARD_KEY_700fa=micmute
+ KEYBOARD_KEY_700fb=rfkill
+ KEYBOARD_KEY_700fc=battery
+ KEYBOARD_KEY_700f4=touchpad_off
+ KEYBOARD_KEY_700f5=touchpad_on
+ KEYBOARD_KEY_700e9=switchvideomode

@@ -5,7 +5,7 @@ buildarch=8
 pkgbase=linux-rockchip-z96a
 pkgname=linux-rockchip-z96a
 pkgver=6.1.172
-pkgrel=10
+pkgrel=11
 pkgdesc='Rockchip BSP Linux kernel with built-in RKNPU support for Sunniwell Z96A'
 arch=('aarch64')
 url='https://github.com/Sakurapainting/rockchip-linux-kernel'
@@ -32,17 +32,21 @@ source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kerne
         'rk3568-sunniwell-z96a-typec-bsp61.dts'
         '0003-mmc-sdio-add-rtl8822cs-ids.patch'
         '0004-rtw88-sdio-use-indirect-io-before-power-on.patch'
+        '0005-power-supply-add-z96a-sc8886-monitor.patch'
+        '99-z96a-bsp-keyboard.hwdb'
         "${_rtw88_archive}::https://codeload.github.com/torvalds/linux/tar.gz/${_rtw88_commit}")
 noextract=("${_rtw88_archive}")
 sha256sums=('SKIP'
-            '01d92d44aa193c90cb083532a0b907c459a312ff2bea92aad38447fda12b77af'
+            '8c9f8809bf6944017fa5db885077f602722068ab578ec1a630e6d44da48049aa'
             '848d8d491ece4a225192b3d56500fff500af3c90b80d309dfe4ee883ca3231fb'
             'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
             'bade90372a8df5977581c436d624c35e667fc5c6712bd91cba2201f8c2fbb268'
-            'eaca242ef12bbadc0ea9706302c5de56089a9cf5a23ed2db365b91d52226b36d'
-            '6e0ce043dec651f12fe70796c6b8207271936bf4cdde76204b99d181d6233e63'
+            '18da5e9147fd73731e3e87bb93bcd5693d0b1798acb46573ab099e39981bf034'
+            '97b7125b8b27e23854d979ce3a5ceb44055aa79863ef1fde611e4727b7cde46f'
             '37702117ad306eccf045b50bb81a9ee18a6857e8c230d1f97e3dc1e951dd0f3a'
             'f384f6f04a20d8fbf1bedd24338b70477208cafce67e6632e6635aa200e4248c'
+            '35a7217313c07b15a06c2eb2c9d03e8dd4598f293dfac42ea69e6d34a44ffe69'
+            '0838a9323f1750a47786b30349b3de1cd5a52e438cd2c26e21fe08546314cf13'
             '831b519b0ea3369130724bf0ca306be94cc7487f02d418962c98cb04f714b322')
 
 prepare() {
@@ -62,6 +66,7 @@ prepare() {
   bsdtar -xf "${srcdir}/${_rtw88_archive}" -C "$rtw88_dir" \
     --strip-components 6 "linux-${_rtw88_commit}/${rtw88_dir}"
   patch -Np1 -i "${srcdir}/0004-rtw88-sdio-use-indirect-io-before-power-on.patch"
+  patch -Np1 -i "${srcdir}/0005-power-supply-add-z96a-sc8886-monitor.patch"
 
   make ARCH=arm64 rockchip_linux_defconfig
   scripts/kconfig/merge_config.sh -m .config z96a-bsp61.config
@@ -85,6 +90,10 @@ prepare() {
   grep -Fxq 'CONFIG_DMABUF_HEAPS_ROCKCHIP_CMA_HEAP=y' .config
   grep -Fxq 'CONFIG_RTW88_8822CS=m' .config
   grep -Fxq 'CONFIG_DRM_PANFROST=m' .config
+  grep -Fxq 'CONFIG_BT_HCIUART_RTL=y' .config
+  grep -Fxq 'CONFIG_SND_SOC_RK817=y' .config
+  grep -Fxq 'CONFIG_SND_SOC_ES7202=y' .config
+  grep -Fxq 'CONFIG_CHARGER_Z96A_SC8886_MONITOR=y' .config
 }
 
 build() {
@@ -124,6 +133,10 @@ package() {
 
   install -Dm644 .config "${docdir}/config"
   install -Dm644 version "${docdir}/kernelrelease"
+  install -Dm644 "${srcdir}/99-z96a-bsp-keyboard.hwdb" \
+    "${pkgdir}/usr/lib/udev/hwdb.d/99-z96a-bsp-keyboard.hwdb"
+  printf '%s\n' 'options rtw88_core disable_lps_deep=y' | install -Dm644 /dev/stdin \
+    "${pkgdir}/usr/lib/modprobe.d/90-z96a-rtw88.conf"
   printf '%s\n' "${_commit}" > "${docdir}/source-commit"
   printf '%s\n' "${_rtw88_commit}" > "${docdir}/rtw88-source-commit"
 

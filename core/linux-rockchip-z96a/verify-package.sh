@@ -19,6 +19,8 @@ kernel_release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernel
 require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
 require_member "etc/mkinitcpio.d/linux-rockchip-z96a.preset"
+require_member usr/lib/udev/hwdb.d/99-z96a-bsp-keyboard.hwdb
+bsdtar -xOf "$package" usr/lib/modprobe.d/90-z96a-rtw88.conf | grep -Fx 'options rtw88_core disable_lps_deep=y'
 require_member var/lib/linux-rockchip-z96a/
 require_member "usr/lib/modules/${kernel_release}/modules.order"
 grep -Eq "^usr/lib/modules/${kernel_release}/kernel/crypto/lz4\\.ko(\\.(gz|xz|zst))?$" <<<"$members"
@@ -48,6 +50,14 @@ for symbol in \
   CONFIG_DRM_GEM_SHMEM_HELPER=m \
   CONFIG_PHY_ROCKCHIP_NANENG_EDP=y \
   CONFIG_BACKLIGHT_PWM=y \
+  CONFIG_BT_HCIUART=m \
+  CONFIG_BT_HCIUART_3WIRE=y \
+  CONFIG_BT_HCIUART_RTL=y \
+  CONFIG_SND_SOC_RK817=y \
+  CONFIG_SND_SOC_ES7202=y \
+  CONFIG_SND_SOC_ROCKCHIP_PDM=y \
+  CONFIG_LEDS_GPIO=y \
+  CONFIG_CHARGER_Z96A_SC8886_MONITOR=y \
   CONFIG_DEBUG_FS=y \
   CONFIG_PROC_FS=y \
   CONFIG_CMA=y \
@@ -72,6 +82,10 @@ grep -Fxq '# CONFIG_ROCKCHIP_RKNPU_DRM_GEM is not set' "$tmpdir/config"
 grep -Fxq '# CONFIG_LOCALVERSION_AUTO is not set' "$tmpdir/config"
 
 rtw88_dir="usr/lib/modules/${kernel_release}/kernel/drivers/net/wireless/realtek/rtw88"
+bt_module="usr/lib/modules/${kernel_release}/kernel/drivers/bluetooth/hci_uart.ko"
+require_member "$bt_module"
+bsdtar -xf "$package" -C "$tmpdir" "$bt_module"
+modinfo -F alias "$tmpdir/$bt_module" | grep -F 'Crealtek,rtl8822cs-bt'
 rtw88_modules=(rtw88_core.ko rtw88_sdio.ko rtw88_8822c.ko rtw88_8822cs.ko)
 rtw88_members=()
 for module in "${rtw88_modules[@]}"; do
@@ -191,6 +205,22 @@ od_opp=/npu-opp-table/opp-j-od-800000000
 
 bus_npu=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ bus_npu)
 [[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$bus_npu" status)" == disabled ]]
+
+rk809_codec=$(fdtget -t s "$dtb" /__symbols__ rk809_codec)
+[[ "$rk809_codec" == /i2c@fdd40000/pmic@20/codec ]]
+[[ "$(fdtget -t s "$dtb" "$rk809_codec" compatible)" == 'rockchip,rk809-codec rockchip,rk817-codec' ]]
+[[ "$(fdtget -t x "$dtb" /rk809-sound/simple-audio-card,codec sound-dai)" == "$(dtb_phandle rk809_codec)" ]]
+[[ "$(fdtget -t x "$dtb" "$rk809_codec" spk-ctl-gpios)" == "$(dtb_phandle gpio3) 6 0" ]]
+[[ "$(fdtget -t s "$dtb" /speaker-amplifier status)" == disabled ]]
+[[ "$(fdtget -t s "$dtb" /__symbols__ es7202_mic)" == /i2c@fe5c0000/codec@30 ]]
+[[ "$(fdtget -t s "$dtb" /i2c@fe5c0000/codec@30 compatible)" == ES7202_PDM_ADC_1 ]]
+[[ "$(fdtget -t x "$dtb" /pdm-sound/simple-audio-card,codec sound-dai)" == "$(dtb_phandle es7202_mic)" ]]
+[[ "$(fdtget -t x "$dtb" /pdm-sound/simple-audio-card,cpu sound-dai)" == "$(dtb_phandle pdm)" ]]
+[[ "$(fdtget -t u "$dtb" /pdm@fe440000 rockchip,path-map)" == '1 3 0 2' ]]
+[[ "$(fdtget -t s "$dtb" /pdm@fe440000 status)" == okay ]]
+[[ "$(fdtget -t s "$dtb" /leds/led-power default-state)" == on ]]
+[[ "$(fdtget -t s "$dtb" /i2c@fdd40000/charger@6b compatible)" == sunniwell,z96a-sc8886s-monitor ]]
+[[ "$(fdtget -t x "$dtb" /i2c@fdd40000/charger@6b reg)" == 6b ]]
 
 if grep -Eq '/rknpu\.ko$' <<<"$members"; then
   printf '%s\n' 'RKNPU must be built into the kernel, not packaged as a module.' >&2

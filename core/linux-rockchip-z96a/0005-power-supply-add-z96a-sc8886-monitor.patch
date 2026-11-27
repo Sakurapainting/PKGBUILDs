@@ -1,0 +1,172 @@
+diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
+index 9fb0a44..09a201d 100644
+--- a/drivers/power/supply/Kconfig
++++ b/drivers/power/supply/Kconfig
+@@ -768,6 +768,13 @@ config CHARGER_BQ25700
+ 	help
+ 	  Say Y to enable support for the TI BQ25700 battery charger.
+ 
++config CHARGER_Z96A_SC8886_MONITOR
++	bool "Sunniwell Z96A SC8886S charge status monitor"
++	depends on I2C && REGMAP_I2C
++	help
++	  Report adapter and charger status on the Sunniwell Z96A using
++	  the firmware-initialized Southchip SC8886S charger.
++
+ config CHARGER_BQ25890
+ 	tristate "TI BQ25890 battery charger driver"
+ 	depends on I2C
+diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
+index 5084bea..c36dded 100644
+--- a/drivers/power/supply/Makefile
++++ b/drivers/power/supply/Makefile
+@@ -94,6 +94,7 @@ obj-$(CONFIG_CHARGER_BQ24257)	+= bq24257_charger.o
+ obj-$(CONFIG_CHARGER_BQ24735)	+= bq24735-charger.o
+ obj-$(CONFIG_CHARGER_BQ2515X)	+= bq2515x_charger.o
+ obj-$(CONFIG_CHARGER_BQ25700)	+= bq25700_charger.o
++obj-$(CONFIG_CHARGER_Z96A_SC8886_MONITOR) += z96a_sc8886_monitor.o
+ obj-$(CONFIG_CHARGER_BQ25890)	+= bq25890_charger.o
+ obj-$(CONFIG_CHARGER_BQ25980)	+= bq25980_charger.o
+ obj-$(CONFIG_CHARGER_BQ256XX)	+= bq256xx_charger.o
+diff --git a/drivers/power/supply/z96a_sc8886_monitor.c b/drivers/power/supply/z96a_sc8886_monitor.c
+new file mode 100644
+index 0000000..f840a53
+--- /dev/null
++++ b/drivers/power/supply/z96a_sc8886_monitor.c
+@@ -0,0 +1,136 @@
++// SPDX-License-Identifier: GPL-2.0-only
++#include <linux/devm-helpers.h>
++#include <linux/i2c.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/power_supply.h>
++#include <linux/regmap.h>
++
++#define SC8886_CHARGER_STATUS	0x20
++#define SC8886_AC_PRESENT	BIT(15)
++#define SC8886_FAST_CHARGE	BIT(10)
++#define SC8886_PRE_CHARGE	BIT(9)
++#define SC8886_STATE_MASK	(SC8886_AC_PRESENT | SC8886_FAST_CHARGE | SC8886_PRE_CHARGE)
++
++struct sc8886_monitor {
++	struct regmap *regmap;
++	struct power_supply *supply;
++	struct delayed_work poll;
++	unsigned int last_state;
++};
++
++static const struct regmap_config sc8886_monitor_regmap = {
++	.reg_bits = 8,
++	.val_bits = 16,
++	.val_format_endian = REGMAP_ENDIAN_LITTLE,
++	.max_register = SC8886_CHARGER_STATUS,
++};
++
++static enum power_supply_property sc8886_monitor_props[] = {
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_STATUS,
++};
++
++static int sc8886_monitor_get_property(struct power_supply *supply,
++				       enum power_supply_property property,
++				       union power_supply_propval *value)
++{
++	struct sc8886_monitor *monitor = power_supply_get_drvdata(supply);
++	unsigned int status;
++	int ret;
++
++	ret = regmap_read(monitor->regmap, SC8886_CHARGER_STATUS, &status);
++	if (ret)
++		return ret;
++
++	switch (property) {
++	case POWER_SUPPLY_PROP_ONLINE:
++		value->intval = !!(status & SC8886_AC_PRESENT);
++		return 0;
++	case POWER_SUPPLY_PROP_STATUS:
++		if (!(status & SC8886_AC_PRESENT))
++			value->intval = POWER_SUPPLY_STATUS_DISCHARGING;
++		else if (status & (SC8886_FAST_CHARGE | SC8886_PRE_CHARGE))
++			value->intval = POWER_SUPPLY_STATUS_CHARGING;
++		else
++			value->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static const struct power_supply_desc sc8886_monitor_desc = {
++	.name = "sc8886-ac",
++	.type = POWER_SUPPLY_TYPE_MAINS,
++	.properties = sc8886_monitor_props,
++	.num_properties = ARRAY_SIZE(sc8886_monitor_props),
++	.get_property = sc8886_monitor_get_property,
++};
++
++static void sc8886_monitor_poll(struct work_struct *work)
++{
++	struct sc8886_monitor *monitor = container_of(to_delayed_work(work),
++						      struct sc8886_monitor, poll);
++	unsigned int status;
++
++	if (!regmap_read(monitor->regmap, SC8886_CHARGER_STATUS, &status)) {
++		status &= SC8886_STATE_MASK;
++		if (status != monitor->last_state) {
++			monitor->last_state = status;
++			power_supply_changed(monitor->supply);
++		}
++	}
++	queue_delayed_work(system_freezable_wq, &monitor->poll, msecs_to_jiffies(2000));
++}
++
++static int sc8886_monitor_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct power_supply_config config = { .of_node = dev->of_node };
++	struct sc8886_monitor *monitor;
++	unsigned int status;
++	int ret;
++
++	monitor = devm_kzalloc(dev, sizeof(*monitor), GFP_KERNEL);
++	if (!monitor)
++		return -ENOMEM;
++
++	monitor->regmap = devm_regmap_init_i2c(client, &sc8886_monitor_regmap);
++	if (IS_ERR(monitor->regmap))
++		return PTR_ERR(monitor->regmap);
++
++	ret = regmap_read(monitor->regmap, SC8886_CHARGER_STATUS, &status);
++	if (ret)
++		return dev_err_probe(dev, ret, "cannot read charger status\n");
++	monitor->last_state = status & SC8886_STATE_MASK;
++
++	config.drv_data = monitor;
++	monitor->supply = devm_power_supply_register(dev, &sc8886_monitor_desc, &config);
++	if (IS_ERR(monitor->supply))
++		return PTR_ERR(monitor->supply);
++
++	ret = devm_delayed_work_autocancel(dev, &monitor->poll, sc8886_monitor_poll);
++	if (ret)
++		return ret;
++	queue_delayed_work(system_freezable_wq, &monitor->poll, msecs_to_jiffies(2000));
++	return 0;
++}
++
++static const struct of_device_id sc8886_monitor_of_match[] = {
++	{ .compatible = "sunniwell,z96a-sc8886s-monitor" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sc8886_monitor_of_match);
++
++static struct i2c_driver sc8886_monitor_driver = {
++	.driver = {
++		.name = "z96a-sc8886-monitor",
++		.of_match_table = sc8886_monitor_of_match,
++	},
++	.probe_new = sc8886_monitor_probe,
++};
++module_i2c_driver(sc8886_monitor_driver);
++
++MODULE_DESCRIPTION("Sunniwell Z96A SC8886S charge status monitor");
++MODULE_LICENSE("GPL");

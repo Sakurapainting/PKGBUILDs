@@ -42,9 +42,11 @@ files=(
   0002-rk808-clkout-match-rk817-mfd-cell.patch
   0003-mmc-sdio-add-rtl8822cs-ids.patch
   0004-rtw88-sdio-use-indirect-io-before-power-on.patch
+  0005-power-supply-add-z96a-sc8886-monitor.patch
   rk3568-sunniwell-z96a-typec-board.dtsi
   rk3568-sunniwell-z96a-typec-bsp61.dts
   z96a-bsp61.config linux-rockchip-z96a.preset
+  99-z96a-bsp-keyboard.hwdb
   verify-edp-planes.sh verify-install.sh verify-npu-power.sh verify-package.sh
 )
 git -C "$package_source" ls-files --error-unmatch -- "${files[@]}" >/dev/null
@@ -59,6 +61,7 @@ git -C "$kernel_tree" read-tree HEAD
 git -C "$kernel_tree" add -N -f -- \
   arch/arm64/boot/dts/rockchip/rk3568-sunniwell-z96a-typec-board.dtsi \
   arch/arm64/boot/dts/rockchip/rk3568-sunniwell-z96a-typec-bsp61.dts \
+  drivers/power/supply/z96a_sc8886_monitor.c \
   drivers/net/wireless/realtek/rtw88 z96a-bsp61.config localversion.10-pkgrel
 git -C "$kernel_tree" diff --no-ext-diff --binary HEAD > "$bundle/bsp-to-z96a.patch"
 test -s "$bundle/bsp-to-z96a.patch"

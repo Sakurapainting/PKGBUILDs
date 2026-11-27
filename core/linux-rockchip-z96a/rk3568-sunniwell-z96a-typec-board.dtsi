@@ -53,7 +53,7 @@
 		};
 	};
 
-	rk809-sound {
+	rk809_sound: rk809-sound {
 		compatible = "simple-audio-card";
 		pinctrl-names = "default";
 		pinctrl-0 = <&hp_det>;

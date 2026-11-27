@@ -78,6 +78,85 @@
 		power-supply = <&vcc3v3_sys>;
 		pwms = <&pwm9 0 25000 0>;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led-power {
+			gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			function = "power";
+		};
+	};
+
+	pdm-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "es7202-mic";
+		simple-audio-card,format = "pdm";
+		simple-audio-card,mclk-fs = <256>;
+
+		simple-audio-card,cpu {
+			sound-dai = <&pdm>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&es7202_mic>;
+		};
+	};
+};
+
+/* BSP RK817 selects the playback path through mixer controls. */
+&rk809_sound {
+	/delete-property/ simple-audio-card,aux-devs;
+	/delete-property/ simple-audio-card,routing;
+	/delete-property/ simple-audio-card,widgets;
+	/delete-property/ simple-audio-card,pin-switches;
+
+	simple-audio-card,codec {
+		sound-dai = <&rk809_codec>;
+	};
+};
+
+&spk_amp {
+	status = "disabled";
+};
+
+&rk809 {
+	rk809_codec: codec {
+		compatible = "rockchip,rk809-codec", "rockchip,rk817-codec";
+		#sound-dai-cells = <0>;
+		clocks = <&cru I2S1_MCLKOUT_TX>;
+		clock-names = "mclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&spk_amp_en>;
+		hp-volume = <0x14>;
+		spk-volume = <0x03>;
+		mic-in-differential;
+		use-ext-amplifier;
+		spk-ctl-gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&i2c3 {
+	es7202_mic: codec@30 {
+		/* Compatible used by the BSP ES7202 driver and the factory DT. */
+		compatible = "ES7202_PDM_ADC_1";
+		reg = <0x30>;
+		#sound-dai-cells = <0>;
+	};
+};
+
+&i2c0 {
+	charger@6b {
+		compatible = "sunniwell,z96a-sc8886s-monitor";
+		reg = <0x6b>;
+	};
+};
+
+&pdm {
+	pinctrl-0 = <&pdmm0_clk1 &pdmm0_sdi1>;
+	/* The internal microphone ADC is on SDI1. */
+	rockchip,path-map = <1 3 0 2>;
+	status = "okay";
 };
 
 &edp_phy {
