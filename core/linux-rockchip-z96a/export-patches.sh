@@ -29,14 +29,29 @@ after applying it, run:
   make ARCH=arm64 olddefconfig
 
 packaging/ includes PKGBUILD, the original numbered patches, the DTS sources,
-the preset and the verification scripts. Follow PKGBUILD prepare() if using these
-individual inputs instead of bsp-to-z96a.patch. PKGBUILD pins the rtw88 import.
+the preset and the kernel verification scripts. Follow PKGBUILD prepare() if
+using these inputs instead of bsp-to-z96a.patch. PKGBUILD pins the rtw88 import.
+The archive does not include the BSP base tree, image firmware, or compiled models.
 SHA256SUMS covers the files in this archive.
 MANIFEST
 
-git -C "$package_source" ls-files -z -- . |
-  tar --null -C "$package_source" -T - -cf - |
-  tar -C "$bundle/packaging" -xf -
+# Include only the files used to build or validate the kernel package.
+files=(
+  PKGBUILD README.md export-patches.sh
+  0001-z96a-bsp61-dtb.patch
+  0002-rk808-clkout-match-rk817-mfd-cell.patch
+  0003-mmc-sdio-add-rtl8822cs-ids.patch
+  0004-rtw88-sdio-use-indirect-io-before-power-on.patch
+  rk3568-sunniwell-z96a-typec-board.dtsi
+  rk3568-sunniwell-z96a-typec-bsp61.dts
+  z96a-bsp61.config linux-rockchip-z96a.preset
+  verify-edp-planes.sh verify-install.sh verify-npu-power.sh verify-package.sh
+)
+git -C "$package_source" ls-files --error-unmatch -- "${files[@]}" >/dev/null
+for file in "${files[@]}"; do
+  [[ -f "$package_source/$file" && ! -L "$package_source/$file" ]]
+  cp -- "$package_source/$file" "$bundle/packaging/"
+done
 
 # Mark newly imported paths only in an isolated Git index.
 export GIT_INDEX_FILE="$work/index"

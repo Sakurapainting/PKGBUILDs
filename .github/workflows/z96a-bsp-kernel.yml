@@ -109,7 +109,8 @@ jobs:
   flash-image:
     needs: build
     if: >-
-      !cancelled() && (needs.build.result == 'success' ||
+      !cancelled() && vars.Z96A_ALLOW_IMAGE_ARTIFACTS == 'true' &&
+      (needs.build.result == 'success' ||
       (github.event_name == 'workflow_dispatch' && inputs.kernel_run_id != ''))
     permissions:
       actions: read
@@ -169,11 +170,30 @@ jobs:
       - name: Bootstrap a clean Arch Linux ARM filesystem
         run: bash .github/scripts/bootstrap-alarm.sh
 
-      - name: Build and validate BOOT/ROOT and full LBA0 images
+      - name: Fetch an approved LBA0 boot-firmware input
+        id: lba0-prefix
+        if: vars.Z96A_LBA0_PREFIX_URL != ''
+        env:
+          PREFIX_URL: ${{ vars.Z96A_LBA0_PREFIX_URL }}
         run: |
-          mkdir -p dist/flash-image dist/flash-image-lba0
+          prefix="$RUNNER_TEMP/z96a-preboot-190464lba.bin.xz"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' --max-time 60 \
+            --output "$prefix" -- "$PREFIX_URL"
+          echo "path=$prefix" >> "$GITHUB_OUTPUT"
+
+      - name: Build and validate flash images
+        env:
+          Z96A_LBA0_PREFIX: ${{ steps.lba0-prefix.outputs.path }}
+        run: |
+          mkdir -p dist/flash-image
+          args=()
+          if [[ -n "$Z96A_LBA0_PREFIX" ]]; then
+            mkdir -p dist/flash-image-lba0
+            args+=(dist/flash-image-lba0)
+          fi
           bash .github/scripts/build-z96a-image.sh "$ALARM_ROOT" \
-            dist/linux-rockchip-z96a-*.pkg.tar.xz dist/flash-image "$IMAGE_PROFILE" dist/flash-image-lba0
+            dist/linux-rockchip-z96a-*.pkg.tar.xz dist/flash-image "$IMAGE_PROFILE" "${args[@]}"
 
       - name: Upload RKDevTool image and checksums
         uses: actions/upload-artifact@v4
@@ -185,6 +205,7 @@ jobs:
           retention-days: 30
 
       - name: Upload complete LBA0 eMMC image
+        if: steps.lba0-prefix.outputs.path != ''
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.IMAGE_PROFILE == 'niri' && 'z96a-rockchip-flash-image-niri-lba0' || 'z96a-rockchip-flash-image-lba0' }}

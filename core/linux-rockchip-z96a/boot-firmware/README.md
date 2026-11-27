@@ -7,3 +7,11 @@ The raw prefix SHA-256 is `2168a3cdd9bdf46953ad7d965d465afeb4b75b31a99b8031974c7
 It preserves only the RK3568 early boot firmware in LBA 34–8191 and the stock U-Boot/FIT partition at LBA 16384–24575. The latter was byte-compared against the board-captured `stock-uboot-p2.img`. The GPT area at LBA 0–33 is zero in this prefix and generated afresh by Actions. All other included sectors are zero, specifically excluding the source image's `security`, `misc`, `proinfo`, `dtbo`, `vbmeta`, Android `boot`, and trust partition contents. The LBA0 image builder separately verifies this prefix and its output offsets.
 
 This is a prebuilt firmware blob sourced from the user-provided image, not a source-built/reproducible Rockchip bootloader. Its inclusion is disclosed here; users distributing or republishing the resulting image should confirm the applicable Rockchip firmware redistribution terms for their use.
+
+The binary is no longer shipped in this source tree. For a controlled build, pass
+the path to a separately obtained and verified copy in `Z96A_LBA0_PREFIX` and
+provide the LBA0 output directory to the image builder. When the Actions image
+job is enabled, it skips LBA0 unless the repository variable
+`Z96A_LBA0_PREFIX_URL` provides an approved HTTPS download matching the pinned
+hashes. Do not set the variable for firmware whose redistribution terms have not
+been confirmed. BOOT/ROOT builds do not require this file.

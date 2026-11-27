@@ -9,6 +9,9 @@ profile=${4:-minimal}
 lba0_output=${5:-}
 if [[ -n "$lba0_output" ]]; then
   lba0_output=$(realpath "$lba0_output")
+  prefix_xz=$(realpath -e "${Z96A_LBA0_PREFIX:?set Z96A_LBA0_PREFIX to a verified firmware prefix for LBA0 builds}")
+  printf '%s  %s\n' e9e5f45f6cd503086c1219b8e1a1f658e4fe32b248a2131cb6d78015c3c2f47e "$prefix_xz" |
+    sha256sum --check --strict
 fi
 case "$profile" in
   minimal) image_suffix= ;;
@@ -261,14 +264,11 @@ LAYOUT
 if [[ -n "$lba0_output" ]]; then
   disk_sectors=61071360
   disk_bytes=$((disk_sectors * sector_bytes))
-  prefix_xz="$board_files/boot-firmware/z96a-preboot-190464lba.bin.xz"
   prefix_raw="$work/z96a-preboot-190464lba.bin"
   full_raw="$work/z96a-archarm-${release}${image_suffix}-lba0.img"
   full_image="$(basename "$full_raw")"
   full_xz="$lba0_output/$full_image.xz"
 
-  printf '%s  %s\n' e9e5f45f6cd503086c1219b8e1a1f658e4fe32b248a2131cb6d78015c3c2f47e "$prefix_xz" |
-    sha256sum --check --strict
   xz -t "$prefix_xz"
   xz -dc "$prefix_xz" > "$prefix_raw"
   [[ "$(stat -c %s "$prefix_raw")" -eq $((190464 * sector_bytes)) ]]

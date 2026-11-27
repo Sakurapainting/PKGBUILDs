@@ -160,7 +160,8 @@ clock rates.
 - `z96a-rockchip-bsp61` contains the verified package and its SHA-256 digest.
 - `z96a-bsp-patches` includes the numbered package patches, DTS and config
   inputs, and `bsp-to-z96a.patch`, the complete diff against the pinned BSP
-  commit, including the rtw88 import.
+  commit, including the rtw88 import. It does not include the full base tree,
+  prebuilt boot firmware, or RKNN models.
 - `z96a-rockchip-flash-image` contains the raw BOOT/ROOT image, compressed with
   Zstandard, with layout, hashes and the [Rockchip flashing guide](flash-image.zh-CN.md).
 - `z96a-rockchip-flash-image-niri` is the partition-only BOOT/ROOT image with
@@ -175,8 +176,13 @@ clock rates.
   write and verifies GPT CRCs, firmware bytes, zeroed OEM partitions and BOOT/ROOT
   offsets; this is not a physical-board flash/cold-boot certification. See
   [the LBA0 flashing and destructive-operation guide](flash-image-lba0.zh-CN.md).
-  The firmware-prefix README records its provenance and exact content exclusions.
-- Select `image_profile=niri` when dispatching the BSP workflow. To rebuild only
+  Actions emits these artifacts only when an approved firmware input is configured.
+  The [firmware-prefix README](boot-firmware/README.md) records provenance,
+  exact content exclusions and how to supply the input.
+- The image job is disabled by default while image redistribution terms are
+  being verified. Set `Z96A_ALLOW_IMAGE_ARTIFACTS=true` in the repository's
+  Actions variables only after the bundled components are cleared for sharing.
+  Select `image_profile=niri` when dispatching the BSP workflow. To rebuild only
   the images, also set `kernel_run_id` to a run whose `build` job passed and
   whose `z96a-rockchip-bsp61` artifact has not expired.
 
