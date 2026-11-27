@@ -1,17 +1,14 @@
-# Z96A sanitized LBA0 boot-firmware prefix
+# Z96A LBA0 boot components
 
-`z96a-preboot-190464lba.bin.xz` is a 190,464-sector (97,517,568-byte) sparse-content prefix used only by the optional full-eMMC LBA0 image builder. It was extracted from the user-provided `ArchLinuxARM-aarch64-260929.img.xz` after comparison with the Z96A's captured GPT and stock U-Boot partition.
+The LBA0 builder uses `uboot-fitfix-v3-p1` from alkaid-ops. Both assets match the bytes at the corresponding LBAs in the reference Z96A Devuan image. [Upstream release](https://github.com/alkaid-ops/z96a-devuan-image/releases/tag/uboot-fitfix-v3-p1)
 
-The raw prefix SHA-256 is `2168a3cdd9bdf46953ad7d965d465afeb4b75b31a99b8031974c7b0035c0dbbc`; the compressed file SHA-256 is `e9e5f45f6cd503086c1219b8e1a1f658e4fe32b248a2131cb6d78015c3c2f47e`.
+| Asset | Start LBA | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `idbloader.bin` | 64 | 204800 | `35c368f3ad8d84acd756e4bb45bcbff56912b9b4a8892ac605ff35809bf683ac` |
+| `u-boot.bin` | 16384 | 1288192 | `56398fb629f0cafa05cea2c930c8562ce6969325b3ce45e197086118cb2b691f` |
 
-It preserves only the RK3568 early boot firmware in LBA 34–8191 and the stock U-Boot/FIT partition at LBA 16384–24575. The latter was byte-compared against the board-captured `stock-uboot-p2.img`. The GPT area at LBA 0–33 is zero in this prefix and generated afresh by Actions. All other included sectors are zero, specifically excluding the source image's `security`, `misc`, `proinfo`, `dtbo`, `vbmeta`, Android `boot`, and trust partition contents. The LBA0 image builder separately verifies this prefix and its output offsets.
+The image starts with a newly generated GPT. Outside the two assets, LBA 34 through 190463 are zero-filled, including Rockchip vendor storage at LBA 7168–7679 and the OEM/Android partitions. The Arch `BOOT` and `ROOT` offsets remain 190464 and 714752.
 
-This is a prebuilt firmware blob sourced from the user-provided image, not a source-built/reproducible Rockchip bootloader. Its inclusion is disclosed here; users distributing or republishing the resulting image should confirm the applicable Rockchip firmware redistribution terms for their use.
+The upstream release describes `idbloader.bin` as a prebuilt DDR 1560 v1.13 and SPL combination. The FIT uses alkaid-ops' U-Boot build. The DDR component is a binary and the exact SPL source provenance is unverified.
 
-The binary is no longer shipped in this source tree. For a controlled build, pass
-the path to a separately obtained and verified copy in `Z96A_LBA0_PREFIX` and
-provide the LBA0 output directory to the image builder. When the Actions image
-job is enabled, it skips LBA0 unless the repository variable
-`Z96A_LBA0_PREFIX_URL` provides an approved HTTPS download matching the pinned
-hashes. Do not set the variable for firmware whose redistribution terms have not
-been confirmed. BOOT/ROOT builds do not require this file.
+For a local build, set `Z96A_LBA0_IDBLOADER` and `Z96A_LBA0_UBOOT_FIT` to the corresponding files and supply an LBA0 output directory to the image builder. The builder checks both hashes before writing the prefix. The BOOT/ROOT filesystem image can be built without the two assets. Actions downloads them only when the repository's image job is enabled.

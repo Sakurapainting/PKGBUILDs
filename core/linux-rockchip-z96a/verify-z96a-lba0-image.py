@@ -104,6 +104,8 @@ def main():
     parser.add_argument("--prefix", type=Path, required=True, help="decompressed 190464-LBA firmware prefix")
     parser.add_argument("--boot", type=Path, required=True, help="standalone BOOT partition image")
     parser.add_argument("--root", type=Path, required=True, help="standalone ROOT partition image")
+    parser.add_argument("--require-empty-vendor-storage", action="store_true",
+                        help="verify that Rockchip vendor storage (LBA 7168–7679) is zeroed")
     args = parser.parse_args()
 
     require(args.image.stat().st_size == TOTAL_SECTORS * SECTOR, "full image has the wrong eMMC capacity")
@@ -142,6 +144,9 @@ def main():
     for name, first, last in entries:
         if name in {"security", "trust", "misc", "proinfo", "dtbo", "vbmeta", "boot"}:
             require_zero_region(args.image, first * SECTOR, (last - first + 1) * SECTOR, name)
+
+    if args.require_empty_vendor_storage:
+        require_zero_region(args.image, 7168 * SECTOR, 512 * SECTOR, "Rockchip vendor storage")
 
     # The image replaces LBA0..33 with its generated GPT, so compare firmware and
     # intentionally blank areas from LBA34 through the end of the source prefix.

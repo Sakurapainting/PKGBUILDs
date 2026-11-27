@@ -163,22 +163,20 @@ clock rates.
   commit, including the rtw88 import. It does not include the full base tree,
   prebuilt boot firmware, or RKNN models.
 - `z96a-rockchip-flash-image` contains the raw BOOT/ROOT image, compressed with
-  Zstandard, with layout, hashes and the [Rockchip flashing guide](flash-image.zh-CN.md).
+  XZ, with layout, hashes and the [Rockchip flashing guide](flash-image.zh-CN.md).
 - `z96a-rockchip-flash-image-niri` is the partition-only BOOT/ROOT image with
   SDDM and Niri preinstalled. It preserves GPT, vendor boot firmware and other
   eMMC partitions.
 - `z96a-rockchip-flash-image-lba0` and
   `z96a-rockchip-flash-image-niri-lba0` are additional whole-eMMC raw images
-  that start at LBA0, contain primary/backup GPT and the sanitized RK3568 boot
-  firmware prefix, and are intended for the RKDevTool `system` slot at address
+  that start at LBA0, contain primary/backup GPT and the alkaid-ops
+  idbloader and U-Boot FIT, and are intended for the RKDevTool `system` slot at address
   `0x00000000` (use the Niri variant for a desktop image). They erase all data
   on the target eMMC. The artifact build performs an offline sparse virtual-flash
-  write and verifies GPT CRCs, firmware bytes, zeroed OEM partitions and BOOT/ROOT
-  offsets; this is not a physical-board flash/cold-boot certification. See
-  [the LBA0 flashing and destructive-operation guide](flash-image-lba0.zh-CN.md).
-  Actions emits these artifacts only when an approved firmware input is configured.
-  The [firmware-prefix README](boot-firmware/README.md) records provenance,
-  exact content exclusions and how to supply the input.
+  write and verifies GPT CRCs, firmware bytes, zeroed vendor storage and OEM
+  partitions, and BOOT/ROOT offsets. The board still needs a separate cold-boot
+  test with these boot components. [LBA0 flashing guide](flash-image-lba0.zh-CN.md) ·
+  [Firmware provenance and local build inputs](boot-firmware/README.md)
 - The image job is disabled by default while image redistribution terms are
   being verified. Set `Z96A_ALLOW_IMAGE_ARTIFACTS=true` in the repository's
   Actions variables only after the bundled components are cleared for sharing.

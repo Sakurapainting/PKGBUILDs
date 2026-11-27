@@ -29,6 +29,8 @@ sha256sum -c RAW-SHA256SUMS
 
 ## 镜像布局与离线校验
 
-镜像使用标准 GPT，分区起始 LBA 与 Z96A 板上已核对的布局相同：`security` 8192、`uboot` 16384、`trust` 24576、`misc` 32768、`proinfo` 40960、`dtbo` 49152、`vbmeta` 57344、`boot` 59392、`BOOT` 190464、`ROOT` 714752。GPT 主、备表均位于镜像中；BOOT/ROOT 与只写分区镜像使用相同的文件系统映像。
+镜像使用标准 GPT，分区起始 LBA 与 Z96A 板上已核对的布局相同：`security` 8192、`uboot` 16384、`trust` 24576、`misc` 32768、`proinfo` 40960、`dtbo` 49152、`vbmeta` 57344、`boot` 59392、`BOOT` 190464、`ROOT` 714752。镜像包含主、备 GPT。BOOT/ROOT 与只写分区镜像使用相同的文件系统映像。
 
-Actions 会将压缩产物解压并模拟从 LBA0 写入一份与目标容量相同的稀疏虚拟磁盘，然后校验解压数据 SHA-256、GPT 两份 CRC 与分区边界、启动固件前缀、OEM/Android 分区清零，以及 BOOT/ROOT 在目标偏移上的逐字节一致性。该自动化验证不等同于在实体 Z96A 上完成一次烧录和冷启动验收；首次实际使用前仍应保留可恢复的整盘备份。
+启动链采用 alkaid-ops 发布的 `uboot-fitfix-v3-p1`。`idbloader.bin` 从 LBA 64 开始写入，`u-boot.bin` 从 LBA 16384 开始写入，RK3568 vendor storage（LBA 7168–7679）填零。启动件的版本与哈希见随包的 `BOOT-FIRMWARE.md`。 [构建仓库里的启动件说明](boot-firmware/README.md)
+
+Actions 会将压缩产物解压并模拟从 LBA0 写入一份与目标容量相同的稀疏虚拟磁盘，然后校验解压数据 SHA-256、GPT 两份 CRC 与分区边界、启动固件前缀、vendor storage 和 OEM/Android 分区清零，以及 BOOT/ROOT 在目标偏移上的逐字节一致性。实际烧录验收需另测冷启动、串口、内屏显示和恢复入口。

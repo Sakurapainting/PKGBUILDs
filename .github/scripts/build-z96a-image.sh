@@ -9,9 +9,6 @@ profile=${4:-minimal}
 lba0_output=${5:-}
 if [[ -n "$lba0_output" ]]; then
   lba0_output=$(realpath "$lba0_output")
-  prefix_xz=$(realpath -e "${Z96A_LBA0_PREFIX:?set Z96A_LBA0_PREFIX to a verified firmware prefix for LBA0 builds}")
-  printf '%s  %s\n' e9e5f45f6cd503086c1219b8e1a1f658e4fe32b248a2131cb6d78015c3c2f47e "$prefix_xz" |
-    sha256sum --check --strict
 fi
 case "$profile" in
   minimal) image_suffix= ;;
@@ -37,6 +34,12 @@ release=$(bsdtar -xOf "$package" usr/share/doc/linux-rockchip-z96a/kernelrelease
 image="z96a-archarm-${release}${image_suffix}-boot-root.img"
 
 board_files="$GITHUB_WORKSPACE/core/linux-rockchip-z96a"
+if [[ -n "$lba0_output" ]]; then
+  prefix_raw="$work/z96a-preboot-190464lba.bin"
+  bash "$board_files/boot-firmware/make-prefix.sh" \
+    "${Z96A_LBA0_IDBLOADER:?missing idbloader.bin}" \
+    "${Z96A_LBA0_UBOOT_FIT:?missing u-boot.bin}" "$prefix_raw"
+fi
 selftest="$board_files/rknn-selftest"
 # Rockchip's v2.3.2 model zoo carries the same Linux runtime tested on Z96A.
 rknn_upstream=https://raw.githubusercontent.com/airockchip/rknn_model_zoo/bad6c7334531becaf90a561988519b7bec34d0ab
@@ -65,9 +68,9 @@ sudo chroot "$root" /bin/bash -s -- "/work/dist/${package##*/}" "$profile" <<'CH
 set -euo pipefail
 pacman-key --init
 pacman-key --populate archlinuxarm
-packages=(mkinitcpio linux-firmware-realtek networkmanager sudo fastfetch iw dosfstools usbutils libstdc++)
+packages=(mkinitcpio linux-firmware-realtek networkmanager sudo fastfetch iw dosfstools usbutils libstdc++ bluez bluez-utils alsa-utils)
 if [[ "$2" == niri ]]; then
-  packages+=(sddm niri mesa xorg-server xwayland-satellite foot fuzzel xdg-desktop-portal-gtk)
+  packages+=(sddm niri mesa xorg-server xwayland-satellite foot fuzzel xdg-desktop-portal-gtk pipewire-audio pipewire-pulse wireplumber)
 fi
 pacman -Syu --noconfirm --needed "${packages[@]}"
 pacman -U --noconfirm "$1"
@@ -132,6 +135,7 @@ CHROOT
 
 sudo systemctl --root="$root" disable sshd.service
 sudo systemctl --root="$root" enable NetworkManager.service serial-getty@ttyS0.service
+sudo systemctl --root="$root" enable bluetooth.service
 sudo install -d "$root/etc/systemd/system/systemd-firstboot.service.d"
 sudo tee "$root/etc/systemd/system/systemd-firstboot.service.d/z96a-root-password.conf" >/dev/null <<'FIRSTBOOT'
 [Service]
@@ -216,6 +220,10 @@ for path in /usr/bin/z96a-rknn-selftest /usr/lib/librknnrt.so /usr/lib/z96a-rknn
   debugfs -R "dump $path $work/verified-rknn-file" "$work/ROOT.img"
   cmp "$root$path" "$work/verified-rknn-file"
 done
+for path in /usr/bin/bluetoothctl /usr/bin/aplay /usr/bin/arecord \
+            /etc/systemd/system/bluetooth.target.wants/bluetooth.service; do
+  debugfs -R "stat $path" "$work/ROOT.img" 2>/dev/null | grep '^Inode:'
+done
 debugfs -R 'cat /etc/passwd' "$work/ROOT.img" 2>/dev/null |
   awk -F: '$1=="alarm" && $6=="/home/alarm" && $7=="/bin/bash" { found++ } END { if (found != 1) exit 1 }'
 debugfs -R 'cat /etc/shadow' "$work/ROOT.img" 2>/dev/null |
@@ -264,18 +272,11 @@ LAYOUT
 if [[ -n "$lba0_output" ]]; then
   disk_sectors=61071360
   disk_bytes=$((disk_sectors * sector_bytes))
-  prefix_raw="$work/z96a-preboot-190464lba.bin"
   full_raw="$work/z96a-archarm-${release}${image_suffix}-lba0.img"
   full_image="$(basename "$full_raw")"
   full_xz="$lba0_output/$full_image.xz"
 
-  xz -t "$prefix_xz"
-  xz -dc "$prefix_xz" > "$prefix_raw"
-  [[ "$(stat -c %s "$prefix_raw")" -eq $((190464 * sector_bytes)) ]]
-  printf '%s  %s\n' 2168a3cdd9bdf46953ad7d965d465afeb4b75b31a99b8031974c7b0035c0dbbc "$prefix_raw" |
-    sha256sum --check --strict
-
-  # A sparse whole-eMMC image: only the sanitized Rockchip boot firmware, the
+  # A sparse whole-eMMC image: only the selected idbloader and U-Boot FIT, the
   # generated GPT and the tested BOOT/ROOT payloads occupy nonzero sectors.
   truncate -s "$disk_bytes" "$full_raw"
   dd if="$prefix_raw" of="$full_raw" bs=4M conv=sparse,notrunc status=none
@@ -296,11 +297,13 @@ if [[ -n "$lba0_output" ]]; then
   virtual_sha=$(sha256sum "$full_raw" | cut -d' ' -f1)
   [[ "$virtual_sha" == "$raw_sha" ]]
   python3 "$board_files/verify-z96a-lba0-image.py" "$full_raw" \
-    --prefix "$prefix_raw" --boot "$work/BOOT.img" --root "$work/ROOT.img"
+    --prefix "$prefix_raw" --boot "$work/BOOT.img" --root "$work/ROOT.img" \
+    --require-empty-vendor-storage
   sfdisk --verify "$full_raw"
 
   printf '%s  %s\n' "$raw_sha" "$full_image" > "$lba0_output/RAW-SHA256SUMS"
   cp "$board_files/flash-image-lba0.zh-CN.md" "$lba0_output/README.zh-CN.md"
+  cp "$board_files/boot-firmware/README.md" "$lba0_output/BOOT-FIRMWARE.md"
   cp "$board_files/verify-z96a-lba0-image.py" "$lba0_output/verify-z96a-lba0-image.py"
   cp "$boot/extlinux/extlinux.conf" "$lba0_output/extlinux.conf"
   cp "$root/usr/share/z96a-image-packages.txt" "$lba0_output/PACKAGES"
@@ -317,10 +320,11 @@ if [[ -n "$lba0_output" ]]; then
   "flash_start_lba": 0,
   "raw_bytes": $disk_bytes,
   "gpt": {"primary_header_lba": 1, "backup_header_lba": $((disk_sectors - 1)), "partition_count": 10},
+  "boot_firmware_source": "alkaid-ops/z96a-devuan-image:uboot-fitfix-v3-p1",
   "boot": {"partlabel": "BOOT", "start_lba": $boot_lba, "sectors": $boot_sectors},
   "root": {"partlabel": "ROOT", "start_lba": $root_lba, "image_sectors": $root_sectors},
-  "verification": "xz decompression streamed to a sparse virtual flash disk; SHA-256, primary/backup GPT, firmware prefix, zeroed OEM regions and BOOT/ROOT offsets verified"
+  "verification": "xz decompression streamed to a sparse virtual flash disk; SHA-256, primary/backup GPT, firmware prefix, zeroed vendor storage and OEM regions, and BOOT/ROOT offsets verified"
 }
 LAYOUT
-  (cd "$lba0_output" && sha256sum "$full_image.xz" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md verify-z96a-lba0-image.py > SHA256SUMS)
+  (cd "$lba0_output" && sha256sum "$full_image.xz" RAW-SHA256SUMS layout.json extlinux.conf PACKAGES README.zh-CN.md BOOT-FIRMWARE.md verify-z96a-lba0-image.py > SHA256SUMS)
 fi
