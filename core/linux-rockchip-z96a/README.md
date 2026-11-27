@@ -18,13 +18,20 @@ partition. The package and both flash images check this plane assignment in
 CI. The desktop image supplies Foot on both Super+Enter and Super+T for the
 pre-created `alarm` account.
 
+Release `6.1.172-10` prepares the NPU rail without relying on the factory
+DTB loaded by U-Boot. The RK809 DCDC_REG4 constraint raises a 500 mV boot
+setting to 850 mV, the voltage of the lowest NPU OPP. The power controller
+also references this supply so the regulator is ready before the NPU IOMMU
+powers up the domain. The 600 MHz cap and the recovery entry with the NPU
+and its IOMMU disabled are unchanged.
+
 ## Isolation
 
 The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-9-z96a-bsp61/`
+- `/usr/lib/modules/6.1.172-10-z96a-bsp61/`
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
 - `/var/lib/linux-rockchip-z96a/` for the generated initramfs
 - `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata

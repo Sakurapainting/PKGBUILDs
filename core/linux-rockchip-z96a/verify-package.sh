@@ -175,16 +175,7 @@ for property in clocks resets power-domains iommus operating-points-v2; do
   fdtget -t x "$tmpdir/z96a.dtb" "$npu" "$property" >/dev/null
 done
 [[ "$(fdtget -t x "$dtb" "$npu" iommus)" == "$(dtb_phandle rknpu_mmu)" ]]
-[[ "$(fdtget -t x "$dtb" "$npu" rknpu-supply)" == "$(dtb_phandle vdd_npu)" ]]
-vdd_node=$(dtb_node vdd_npu)
-[[ "$vdd_node" == /i2c@fdd40000/pmic@20/regulators/DCDC_REG4 ]]
-[[ "$(fdtget -t s "$tmpdir/z96a.dtb" "$vdd_node" regulator-name)" == vdd_npu ]]
-[[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-min-microvolt)" == 500000 ]]
-[[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-max-microvolt)" == 1350000 ]]
-if fdtget -t u "$tmpdir/z96a.dtb" "$vdd_node" regulator-init-microvolt >/dev/null 2>&1; then
-  printf '%s\n' 'Do not assign an NPU rail voltage before board-level verification.' >&2
-  exit 1
-fi
+bash "$(dirname -- "${BASH_SOURCE[0]}")/verify-npu-power.sh" "$dtb" okay
 
 opp_table=$(fdtget -t s "$tmpdir/z96a.dtb" /__symbols__ npu_opp_table)
 [[ "$(fdtget -t u "$tmpdir/z96a.dtb" "$opp_table" rockchip,init-freq)" == 600000 ]]

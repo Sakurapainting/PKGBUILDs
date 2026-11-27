@@ -5,7 +5,7 @@ buildarch=8
 pkgbase=linux-rockchip-z96a
 pkgname=linux-rockchip-z96a
 pkgver=6.1.172
-pkgrel=9
+pkgrel=10
 pkgdesc='Rockchip BSP Linux kernel with built-in RKNPU support for Sunniwell Z96A'
 arch=('aarch64')
 url='https://github.com/Sakurapainting/rockchip-linux-kernel'
@@ -40,7 +40,7 @@ sha256sums=('SKIP'
             'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
             'bade90372a8df5977581c436d624c35e667fc5c6712bd91cba2201f8c2fbb268'
             'eaca242ef12bbadc0ea9706302c5de56089a9cf5a23ed2db365b91d52226b36d'
-            '0ba5de61e85ee53866e3c8b3b9d4fd3b603a08bbaacee639298c9d50697ee099'
+            '6e0ce043dec651f12fe70796c6b8207271936bf4cdde76204b99d181d6233e63'
             '37702117ad306eccf045b50bb81a9ee18a6857e8c230d1f97e3dc1e951dd0f3a'
             'f384f6f04a20d8fbf1bedd24338b70477208cafce67e6632e6635aa200e4248c'
             '831b519b0ea3369130724bf0ca306be94cc7487f02d418962c98cb04f714b322')

@@ -202,6 +202,8 @@ diff -r "$boot" "$work/verified-boot"
 for boot_dtb in "$dtb" z96a-bsp61-recovery.dtb; do
   bash "$board_files/verify-edp-planes.sh" "$work/verified-boot/dtbs/$boot_dtb"
 done
+bash "$board_files/verify-npu-power.sh" "$work/verified-boot/dtbs/$dtb" okay
+bash "$board_files/verify-npu-power.sh" "$work/verified-boot/dtbs/z96a-bsp61-recovery.dtb" disabled
 for path in /usr/lib/modules/"$release"/modules.dep.bin /etc/fstab /usr/share/z96a-image-packages.txt \
             /usr/bin/fastfetch /usr/bin/iw /usr/bin/fsck.fat /usr/bin/lsusb; do
   debugfs -R "stat $path" "$work/ROOT.img" 2>/dev/null | grep '^Inode:'
@@ -228,9 +230,6 @@ if [[ "$profile" == niri ]]; then
     debugfs -R "stat $path" "$work/ROOT.img" 2>/dev/null | grep '^Inode:'
   done
 fi
-[[ "$(fdtget -t s "$boot/dtbs/$dtb" /npu@fde40000 status)" == okay ]]
-[[ "$(fdtget -t s "$boot/dtbs/z96a-bsp61-recovery.dtb" /npu@fde40000 status)" == disabled ]]
-
 cat "$work/BOOT.img" "$work/ROOT.img" | xz -T2 -6 -c > "$output/$image.xz"
 xz -t "$output/$image.xz"
 raw_sha=$(cat "$work/BOOT.img" "$work/ROOT.img" | sha256sum | cut -d' ' -f1)

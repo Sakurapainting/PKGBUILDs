@@ -31,6 +31,16 @@
 	status = "disabled";
 };
 
+/* The raw-disk image's U-Boot may leave DCDC4 at 500 mV. */
+&vdd_npu {
+	regulator-min-microvolt = <850000>;
+};
+
+/* Ensure DCDC4 is configured before the NPU IOMMU attaches to genpd. */
+&power {
+	npu-supply = <&vdd_npu>;
+};
+
 /* Cap both the initial frequency and available OPPs at the standard 600 MHz. */
 &npu_opp_table {
 	rockchip,init-freq = <600000>;
