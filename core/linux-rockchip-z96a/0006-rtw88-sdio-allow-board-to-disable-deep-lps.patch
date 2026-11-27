@@ -1,0 +1,51 @@
+rtw88: sdio: allow boards to disable deep LPS per device
+
+On Z96A the RTL8822CS can lose connectivity in deep LPS. Read the
+BSP-specific realtek,disable-lps-deep boolean from the SDIO function
+node so other devices can keep the default power-saving behavior.
+
+diff --git a/drivers/net/wireless/realtek/rtw88/main.c b/drivers/net/wireless/realtek/rtw88/main.c
+--- a/drivers/net/wireless/realtek/rtw88/main.c
++++ b/drivers/net/wireless/realtek/rtw88/main.c
+@@ -1334,8 +1334,8 @@ static enum rtw_lps_deep_mode rtw_update_lps_deep_mode(struct rtw_dev *rtwdev,
+ {
+ 	const struct rtw_chip_info *chip = rtwdev->chip;
+ 
+-	if (rtw_disable_lps_deep_mode || !chip->lps_deep_mode_supported ||
+-	    !fw->feature)
++	if (rtw_disable_lps_deep_mode || rtwdev->disable_lps_deep ||
++	    !chip->lps_deep_mode_supported || !fw->feature)
+ 		return LPS_DEEP_MODE_NONE;
+ 
+ 	if ((chip->lps_deep_mode_supported & BIT(LPS_DEEP_MODE_PG)) &&
+diff --git a/drivers/net/wireless/realtek/rtw88/main.h b/drivers/net/wireless/realtek/rtw88/main.h
+--- a/drivers/net/wireless/realtek/rtw88/main.h
++++ b/drivers/net/wireless/realtek/rtw88/main.h
+@@ -2042,6 +2042,7 @@ struct rtw_dev {
+ 
+ 	/* lps power state & handler work */
+ 	struct rtw_lps_conf lps_conf;
++	bool disable_lps_deep;
+ 	bool ps_enabled;
+ 	bool beacon_loss;
+ 	struct completion lps_leave_check;
+diff --git a/drivers/net/wireless/realtek/rtw88/sdio.c b/drivers/net/wireless/realtek/rtw88/sdio.c
+--- a/drivers/net/wireless/realtek/rtw88/sdio.c
++++ b/drivers/net/wireless/realtek/rtw88/sdio.c
+@@ -9,6 +9,7 @@
+ #include <linux/module.h>
+ #include <linux/mmc/host.h>
+ #include <linux/mmc/sdio_func.h>
++#include <linux/property.h>
+ #include "main.h"
+ #include "debug.h"
+ #include "fw.h"
+@@ -1287,6 +1288,8 @@ int rtw_sdio_probe(struct sdio_func *sdio_func,
+ 	rtwdev->hw = hw;
+ 	rtwdev->dev = &sdio_func->dev;
+ 	rtwdev->chip = (struct rtw_chip_info *)id->driver_data;
++	rtwdev->disable_lps_deep =
++		device_property_read_bool(rtwdev->dev, "realtek,disable-lps-deep");
+ 	rtwdev->hci.ops = &rtw_sdio_ops;
+ 	rtwdev->hci.type = RTW_HCI_TYPE_SDIO;
+ 

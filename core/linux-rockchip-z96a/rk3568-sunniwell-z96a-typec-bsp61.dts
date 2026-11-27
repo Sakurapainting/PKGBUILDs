@@ -236,6 +236,10 @@
 	status = "okay";
 };
 
+&rtl8822cs {
+	realtek,disable-lps-deep;
+};
+
 /* Keep VOP DMA translation and skip the failing MMU reset command. */
 &vop_mmu {
 	rockchip,disable-mmu-reset;

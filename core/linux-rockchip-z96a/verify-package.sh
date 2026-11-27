@@ -20,7 +20,6 @@ require_member usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61
 require_member usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb
 require_member "etc/mkinitcpio.d/linux-rockchip-z96a.preset"
 require_member usr/lib/udev/hwdb.d/99-z96a-bsp-keyboard.hwdb
-bsdtar -xOf "$package" usr/lib/modprobe.d/90-z96a-rtw88.conf | grep -Fx 'options rtw88_core disable_lps_deep=y'
 require_member var/lib/linux-rockchip-z96a/
 require_member "usr/lib/modules/${kernel_release}/modules.order"
 grep -Eq "^usr/lib/modules/${kernel_release}/kernel/crypto/lz4\\.ko(\\.(gz|xz|zst))?$" <<<"$members"
@@ -30,7 +29,7 @@ if grep -Eq '^boot(/|$)' <<<"$members"; then
   exit 1
 fi
 
-if grep -E '^(usr/lib/modules/[^/]+/(vmlinuz|extramodules/?)$|usr/lib/initcpio/)' <<<"$members"; then
+if grep -E '^(usr/lib/modules/[^/]+/(vmlinuz|extramodules/?)$|usr/lib/(initcpio|modprobe\.d)(/|$))' <<<"$members"; then
   printf '%s\n' 'BSP package contains a mkinitcpio hook trigger.' >&2
   exit 1
 fi
@@ -128,6 +127,8 @@ dtb_node() {
 dtb_phandle() {
   fdtget -t x "$dtb" "$(dtb_node "$1")" phandle
 }
+
+fdtget "$dtb" "$(dtb_node rtl8822cs)" realtek,disable-lps-deep >/dev/null
 
 vop=$(dtb_node vop)
 cru=$(dtb_phandle cru)

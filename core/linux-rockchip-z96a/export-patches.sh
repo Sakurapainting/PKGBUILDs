@@ -43,6 +43,7 @@ files=(
   0003-mmc-sdio-add-rtl8822cs-ids.patch
   0004-rtw88-sdio-use-indirect-io-before-power-on.patch
   0005-power-supply-add-z96a-sc8886-monitor.patch
+  0006-rtw88-sdio-allow-board-to-disable-deep-lps.patch
   rk3568-sunniwell-z96a-typec-board.dtsi
   rk3568-sunniwell-z96a-typec-bsp61.dts
   z96a-bsp61.config linux-rockchip-z96a.preset

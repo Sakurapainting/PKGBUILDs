@@ -31,16 +31,20 @@ The package is named `linux-rockchip-z96a`. It installs only:
 
 - `/usr/lib/linux-rockchip-z96a-bsp61/Image-rockchip-z96a-bsp61`
 - `/usr/lib/linux-rockchip-z96a-bsp61/dtbs-rockchip-z96a-bsp61/rk3568-sunniwell-z96a-typec-bsp61.dtb`
-- `/usr/lib/modules/6.1.172-10-z96a-bsp61/`
+- `/usr/lib/modules/<kernel-release>/`
+- `/usr/lib/udev/hwdb.d/99-z96a-bsp-keyboard.hwdb`
 - `/etc/mkinitcpio.d/linux-rockchip-z96a.preset`
 - `/var/lib/linux-rockchip-z96a/` for the generated initramfs
 - `/usr/share/doc/linux-rockchip-z96a/` for the config and build metadata
 
 Release `6.1.172-1` included a `vmlinuz` symlink under the BSP module directory.
 The Arch Linux ARM pacman hook matched it and generated the BSP initramfs in
-`/boot` during `pacman -U`. Release `6.1.172-2` and later omit the hook
-trigger and set the preset output to
+`/boot` during `pacman -U`. Starting with `6.1.172-2`, the package omits
+the symlink and sets the preset output to
 `/var/lib/linux-rockchip-z96a/initramfs-linux-rockchip-z96a-bsp61.img`.
+Starting with `6.1.172-13`, the BSP DTB disables deep LPS only for Z96A's
+RTL8822CS SDIO function. A package-wide `usr/lib/modprobe.d/` drop-in would
+trigger mkinitcpio, which would also rebuild the mainline initramfs.
 CI checks the BSP-only transaction with mkinitcpio already installed. Keep
 mkinitcpio and other package changes out of the device staging transaction
 so unrelated hooks cannot change the mainline files.
