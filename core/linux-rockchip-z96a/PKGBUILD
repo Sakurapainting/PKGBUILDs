@@ -19,7 +19,7 @@ _commit=77168c8d5ab82399f65a80e9f807b50ba37cf483
 _srcname=rockchip-linux-kernel
 # Linux v6.4 rtw88 sources used in the RTL8822CS hardware test.
 _rtw88_commit=6995e2de6891c724bfeb2db33d7b87775f913ad1
-_rtw88_archive="linux-rtw88-${_rtw88_commit}.tar.gz"
+_rtw88_archive=linux-rtw88-v6.4.tar.xz
 _dtb=rk3568-sunniwell-z96a-typec-bsp61
 _bootstagedir="usr/lib/${pkgname}-bsp61"
 
@@ -35,7 +35,7 @@ source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kerne
         '0005-power-supply-add-z96a-sc8886-monitor.patch'
         '0006-rtw88-sdio-allow-board-to-disable-deep-lps.patch'
         '99-z96a-bsp-keyboard.hwdb'
-        "${_rtw88_archive}::https://codeload.github.com/torvalds/linux/tar.gz/${_rtw88_commit}")
+        "${_rtw88_archive}")
 noextract=("${_rtw88_archive}")
 sha256sums=('SKIP'
             '211a40c4b8040fadd2604288633dc971aa8382d93150d03975730d9256d4e92e'
@@ -49,7 +49,7 @@ sha256sums=('SKIP'
             '35a7217313c07b15a06c2eb2c9d03e8dd4598f293dfac42ea69e6d34a44ffe69'
             'f057c1c469e440701fc2b1779c615bfd26050f2d086fe4d0aaeb09f20c2f1b5a'
             '0838a9323f1750a47786b30349b3de1cd5a52e438cd2c26e21fe08546314cf13'
-            '831b519b0ea3369130724bf0ca306be94cc7487f02d418962c98cb04f714b322')
+            '2d941ef5785d3ac462288055accfb1c7ba2b3d4893e2fbad5d78b6d0b72b9571')
 
 prepare() {
   cd "${srcdir}/${_srcname}"
@@ -66,7 +66,7 @@ prepare() {
 
   local rtw88_dir=drivers/net/wireless/realtek/rtw88
   bsdtar -xf "${srcdir}/${_rtw88_archive}" -C "$rtw88_dir" \
-    --strip-components 6 "linux-${_rtw88_commit}/${rtw88_dir}"
+    --strip-components 5 "$rtw88_dir"
   patch -Np1 -i "${srcdir}/0004-rtw88-sdio-use-indirect-io-before-power-on.patch"
   patch -Np1 -i "${srcdir}/0005-power-supply-add-z96a-sc8886-monitor.patch"
   patch -Np1 -i "${srcdir}/0006-rtw88-sdio-allow-board-to-disable-deep-lps.patch"

@@ -20,7 +20,7 @@ Base commit: $base
 Packaging revision: $revision
 
 bsp-to-z96a.patch contains the complete kernel source changes applied by prepare(),
-including the board DTS files, rtw88 v6.4 import and subsequent SDIO fix, and the
+including the board DTS files, rtw88 v6.4 import and subsequent SDIO fixes, and the
 Kconfig fragment. Apply it to the exact base commit with git apply. To configure
 after applying it, run:
 
@@ -29,8 +29,8 @@ after applying it, run:
   make ARCH=arm64 olddefconfig
 
 packaging/ includes PKGBUILD, the original numbered patches, the DTS sources,
-the preset and the kernel verification scripts. Follow PKGBUILD prepare() if
-using these inputs instead of bsp-to-z96a.patch. PKGBUILD pins the rtw88 import.
+the rtw88 source archive, the preset and the kernel verification scripts. Follow
+PKGBUILD prepare() if using these inputs instead of bsp-to-z96a.patch.
 The archive does not include the BSP base tree, image firmware, or compiled models.
 SHA256SUMS covers the files in this archive.
 MANIFEST
@@ -44,6 +44,7 @@ files=(
   0004-rtw88-sdio-use-indirect-io-before-power-on.patch
   0005-power-supply-add-z96a-sc8886-monitor.patch
   0006-rtw88-sdio-allow-board-to-disable-deep-lps.patch
+  linux-rtw88-v6.4.tar.xz
   rk3568-sunniwell-z96a-typec-board.dtsi
   rk3568-sunniwell-z96a-typec-bsp61.dts
   z96a-bsp61.config linux-rockchip-z96a.preset

@@ -25,6 +25,25 @@ also references this supply so the regulator is ready before the NPU IOMMU
 powers up the domain. The 600 MHz cap and the recovery entry with the NPU
 and its IOMMU disabled are unchanged.
 
+## rtw88 Source Archive
+
+`linux-rtw88-v6.4.tar.xz` contains the unmodified `rtw88` source directory
+and its license texts from the [kernel.org Linux 6.4 source release](https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.4.tar.xz)
+(`6995e2de6891c724bfeb2db33d7b87775f913ad1`). The release tarball has SHA-256
+`8fa0588f0c2ceca44cac77a0e39ba48c9f00a6b9dc69761c02a5d3efac8da7f3`.
+After verifying and extracting the release, regenerate the archive from the
+`linux-6.4` directory with GNU tar and xz:
+
+```sh
+XZ_OPT=-9 tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0 \
+  --numeric-owner -cJf linux-rtw88-v6.4.tar.xz COPYING LICENSES/preferred/GPL-2.0 \
+  LICENSES/preferred/BSD-3-Clause LICENSES/exceptions/Linux-syscall-note \
+  drivers/net/wireless/realtek/rtw88
+```
+
+This pins only the driver sources, avoids a full mainline download during
+BSP builds, and does not bundle any Realtek firmware binaries.
+
 ## Isolation
 
 The package is named `linux-rockchip-z96a`. It installs only:
