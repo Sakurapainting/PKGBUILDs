@@ -5,7 +5,7 @@ buildarch=8
 pkgbase=linux-rockchip-z96a
 pkgname=linux-rockchip-z96a
 pkgver=6.1.172
-pkgrel=11
+pkgrel=12
 pkgdesc='Rockchip BSP Linux kernel with built-in RKNPU support for Sunniwell Z96A'
 arch=('aarch64')
 url='https://github.com/Sakurapainting/rockchip-linux-kernel'
@@ -37,12 +37,12 @@ source=("${_srcname}::git+https://github.com/Sakurapainting/rockchip-linux-kerne
         "${_rtw88_archive}::https://codeload.github.com/torvalds/linux/tar.gz/${_rtw88_commit}")
 noextract=("${_rtw88_archive}")
 sha256sums=('SKIP'
-            '8c9f8809bf6944017fa5db885077f602722068ab578ec1a630e6d44da48049aa'
+            '211a40c4b8040fadd2604288633dc971aa8382d93150d03975730d9256d4e92e'
             '848d8d491ece4a225192b3d56500fff500af3c90b80d309dfe4ee883ca3231fb'
             'e6dec1361fff23e8e846d0b563dd3d7913c18c808674ad4883307c11bfb8d6da'
             'bade90372a8df5977581c436d624c35e667fc5c6712bd91cba2201f8c2fbb268'
             '18da5e9147fd73731e3e87bb93bcd5693d0b1798acb46573ab099e39981bf034'
-            '97b7125b8b27e23854d979ce3a5ceb44055aa79863ef1fde611e4727b7cde46f'
+            '08f105f9d06f8e5671b5ab8685b4c56e0f340d41bc6d4a0bca6fd4316520a292'
             '37702117ad306eccf045b50bb81a9ee18a6857e8c230d1f97e3dc1e951dd0f3a'
             'f384f6f04a20d8fbf1bedd24338b70477208cafce67e6632e6635aa200e4248c'
             '35a7217313c07b15a06c2eb2c9d03e8dd4598f293dfac42ea69e6d34a44ffe69'
@@ -94,6 +94,7 @@ prepare() {
   grep -Fxq 'CONFIG_SND_SOC_RK817=y' .config
   grep -Fxq 'CONFIG_SND_SOC_ES7202=y' .config
   grep -Fxq 'CONFIG_CHARGER_Z96A_SC8886_MONITOR=y' .config
+  grep -Fxq 'CONFIG_GENERIC_ADC_THERMAL=y' .config
 }
 
 build() {

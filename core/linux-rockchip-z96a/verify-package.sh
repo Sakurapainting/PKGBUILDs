@@ -58,6 +58,7 @@ for symbol in \
   CONFIG_SND_SOC_ROCKCHIP_PDM=y \
   CONFIG_LEDS_GPIO=y \
   CONFIG_CHARGER_Z96A_SC8886_MONITOR=y \
+  CONFIG_GENERIC_ADC_THERMAL=y \
   CONFIG_DEBUG_FS=y \
   CONFIG_PROC_FS=y \
   CONFIG_CMA=y \
@@ -221,6 +222,16 @@ rk809_codec=$(fdtget -t s "$dtb" /__symbols__ rk809_codec)
 [[ "$(fdtget -t s "$dtb" /leds/led-power default-state)" == on ]]
 [[ "$(fdtget -t s "$dtb" /i2c@fdd40000/charger@6b compatible)" == sunniwell,z96a-sc8886s-monitor ]]
 [[ "$(fdtget -t x "$dtb" /i2c@fdd40000/charger@6b reg)" == 6b ]]
+[[ "$(fdtget -t x "$dtb" /battery-thermistor io-channels)" == "$(dtb_phandle saradc) 4" ]]
+[[ "$(fdtget -t x "$dtb" /thermal-zones/battery-thermal thermal-sensors)" == "$(dtb_phandle battery_thermistor)" ]]
+temperature_table=$(fdtget -t i "$dtb" /battery-thermistor temperature-lookup-table)
+read -r -a ntc <<<"$temperature_table"
+[[ "${#ntc[@]}" -eq 162 ]]
+[[ "${ntc[1]} ${ntc[91]} ${ntc[161]}" == '1629 900 362' ]]
+for ((i = 0; i < ${#ntc[@]}; i += 2)); do
+  (( ntc[i] == -20000 + i * 500 ))
+  (( i == 0 || ntc[i + 1] < ntc[i - 1] ))
+done
 
 if grep -Eq '/rknpu\.ko$' <<<"$members"; then
   printf '%s\n' 'RKNPU must be built into the kernel, not packaged as a module.' >&2
